@@ -1,0 +1,5 @@
+{
+  "workerUrl": "https://englishfluency-worker.<compte>.workers.dev",
+  "apiSecret": "<secret API_SECRET du Worker>",
+  "profileId": "default"
+}

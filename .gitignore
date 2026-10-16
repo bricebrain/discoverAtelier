@@ -1,0 +1,14 @@
+# Bundles de travail (audios, transcriptions) : jamais versionnés
+fileToImport/
+
+# Environnement et modèles locaux, volumineux
+venv-tts/
+modeles_tts/
+_sauvegardes/
+
+# Secret du Worker : voir config_import.example.json
+config_import.json
+
+__pycache__/
+*.pyc
+.DS_Store

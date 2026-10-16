@@ -1,0 +1,1264 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Atelier English Fluency</title>
+<style>
+  :root {
+    --fond: #f4f5f7;
+    --surface: #ffffff;
+    --surface-2: #f0f2f5;
+    --survol: #f7f8fa;
+    --bord: #e3e6eb;
+    --texte: #161a22;
+    --sourd: #5f6878;
+    --discret: #8b93a1;
+    --accent: #e8553d;
+    --accent-2: #f07a4e;
+    --accent-doux: #fdeee9;
+    --ok: #16a067;
+    --ok-doux: #e5f6ee;
+    --attention: #b7791f;
+    --attention-doux: #fdf4e3;
+    --erreur: #d33a3a;
+    --erreur-doux: #fdeaea;
+    --info: #2f6fde;
+    --info-doux: #e8f0fd;
+    --ombre: 0 1px 2px rgba(16, 24, 40, .04), 0 2px 8px rgba(16, 24, 40, .04);
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; min-width: 1100px; overflow: hidden;
+    display: grid; grid-template-rows: 52px 1fr;
+    background: var(--fond); color: var(--texte);
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  a { color: var(--info); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  kbd {
+    display: inline-block; min-width: 18px; padding: 0 5px; border-radius: 5px; text-align: center;
+    border: 1px solid var(--bord); border-bottom-width: 2px; background: var(--surface);
+    font: 11px/16px ui-monospace, Menlo, monospace; color: var(--sourd);
+  }
+
+  /* ---------- barre d'application ---------- */
+  .barre-app {
+    display: flex; align-items: center; gap: 14px; padding: 0 20px;
+    background: var(--surface); border-bottom: 1px solid var(--bord);
+  }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 650; font-size: 14.5px; }
+  .logo .pastille-logo {
+    width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; font-size: 15px;
+  }
+  .barre-app .espaceur { flex: 1; }
+  .stats { color: var(--sourd); font-size: 12.5px; }
+
+  /* ---------- boutons ---------- */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 7px 13px; border-radius: 9px; border: 1px solid var(--bord);
+    background: var(--surface); cursor: pointer; font-weight: 550; font-size: 13px;
+    white-space: nowrap; transition: background .12s, border-color .12s;
+  }
+  .btn:hover:not(:disabled) { background: var(--survol); border-color: #d3d7de; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn.primaire { background: linear-gradient(135deg, var(--accent), var(--accent-2)); border-color: transparent; color: #fff; }
+  .btn.primaire:hover:not(:disabled) { filter: brightness(1.06); background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+  .btn.grand { padding: 9px 16px; font-size: 13.5px; }
+  .btn.petit { padding: 4px 9px; font-size: 12px; border-radius: 7px; }
+  .btn.fantome { border-color: transparent; background: transparent; color: var(--sourd); }
+  .btn.fantome:hover:not(:disabled) { color: var(--texte); background: var(--surface-2); }
+  .btn kbd { border-color: rgba(255,255,255,.35); background: rgba(255,255,255,.15); color: #fff; }
+  .btn:not(.primaire) kbd { border-color: var(--bord); background: var(--surface-2); color: var(--sourd); }
+
+  /* ---------- structure ---------- */
+  .app { display: grid; grid-template-columns: 360px 1fr; min-height: 0; }
+  .barre-laterale {
+    display: flex; flex-direction: column; min-height: 0;
+    background: var(--surface); border-right: 1px solid var(--bord);
+  }
+  .outils-liste { padding: 14px 14px 10px; border-bottom: 1px solid var(--bord); }
+  .recherche { position: relative; margin-bottom: 10px; }
+  .recherche input {
+    width: 100%; padding: 7px 34px 7px 30px; border-radius: 9px;
+    border: 1px solid var(--bord); background: var(--surface-2); outline: none;
+  }
+  .recherche input:focus { border-color: var(--accent); background: var(--surface); box-shadow: 0 0 0 3px var(--accent-doux); }
+  .recherche::before { content: "⌕"; position: absolute; left: 10px; top: 4px; color: var(--discret); font-size: 17px; }
+  .recherche kbd { position: absolute; right: 8px; top: 7px; }
+  .filtres { display: flex; gap: 2px; }
+  .filtre {
+    padding: 3px 7px; white-space: nowrap; border-radius: 7px; border: none; background: transparent;
+    cursor: pointer; font-size: 12.5px; color: var(--sourd);
+  }
+  .filtre:hover { background: var(--surface-2); }
+  .filtre.actif { background: var(--accent-doux); color: var(--accent); font-weight: 600; }
+  .filtre .nb { opacity: .65; margin-left: 4px; font-variant-numeric: tabular-nums; }
+
+  .liste { flex: 1; min-height: 0; overflow-y: auto; padding: 8px; }
+  .titre-groupe { font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: .06em; color: var(--discret); margin: 8px 8px 6px; }
+
+  .ligne-bundle {
+    width: 100%; text-align: left; cursor: pointer; border: none; background: transparent;
+    border-radius: 10px; padding: 9px 10px; display: grid; gap: 4px; margin-bottom: 2px;
+  }
+  .ligne-bundle:hover { background: var(--survol); }
+  .ligne-bundle.active { background: var(--accent-doux); }
+  .ligne-bundle .haut { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .ligne-bundle .titre { flex: 1; min-width: 0; font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ligne-bundle .infos { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--sourd); min-width: 0; }
+  .ligne-bundle .prochaine { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .pied-lateral {
+    padding: 10px 14px; border-top: 1px solid var(--bord); font-size: 11.5px; color: var(--discret);
+    display: flex; flex-wrap: wrap; gap: 4px 12px;
+  }
+
+  .points { display: inline-flex; gap: 3px; flex: none; }
+  .points i { width: 6px; height: 6px; border-radius: 99px; background: var(--bord); display: block; }
+  .points i.fait { background: var(--ok); }
+  .points i.encours { background: var(--accent); }
+
+  .tag {
+    display: inline-flex; align-items: center; padding: 0 6px; border-radius: 5px; flex: none;
+    font-size: 11px; font-weight: 650; background: var(--surface-2); color: var(--sourd); line-height: 18px;
+  }
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border-radius: 99px;
+    font-size: 11.5px; font-weight: 600; white-space: nowrap; flex: none;
+  }
+  .pill::before { content: ""; width: 6px; height: 6px; border-radius: 99px; background: currentColor; }
+  .pill.gris { background: var(--surface-2); color: var(--sourd); }
+  .pill.bleu { background: var(--info-doux); color: var(--info); }
+  .pill.vert { background: var(--ok-doux); color: var(--ok); }
+  .pill.orange { background: var(--attention-doux); color: var(--attention); }
+  .pill.rouge { background: var(--erreur-doux); color: var(--erreur); }
+  .pill.accent { background: var(--accent-doux); color: var(--accent); }
+
+  .barre { height: 6px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
+  .barre > div { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .3s; }
+  .barre.indeterminee > div { width: 35% !important; animation: defile 1.1s infinite linear; }
+  @keyframes defile { 0% { margin-left: -35%; } 100% { margin-left: 100%; } }
+
+  .job { border: 1px dashed var(--bord); border-radius: 10px; padding: 9px 10px; display: grid; gap: 6px; margin-bottom: 6px; }
+  .job .haut { display: flex; gap: 8px; align-items: center; }
+  .job .titre { flex: 1; font-weight: 600; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .job .message { font-size: 11.5px; color: var(--sourd); word-break: break-word; }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .liste-vide { color: var(--discret); font-size: 13px; text-align: center; padding: 30px 12px; }
+
+  /* ---------- zone de travail ---------- */
+  .travail { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+  .entete-travail { background: var(--surface); border-bottom: 1px solid var(--bord); padding: 18px 28px 0; }
+  .ligne-titre { display: flex; align-items: flex-start; gap: 20px; }
+  .ligne-titre .bloc-titre { flex: 1; min-width: 0; }
+  .ligne-titre h1 { font-size: 19px; margin: 0 0 6px; line-height: 1.3; }
+  .meta-ligne { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; color: var(--sourd); font-size: 12.5px; }
+  .action-suivante { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex: none; }
+  .action-suivante .legende { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--discret); font-weight: 650; }
+
+  .stepper { display: flex; margin-top: 16px; }
+  .onglet-etape {
+    flex: 1; display: flex; align-items: center; gap: 10px; padding: 10px 12px 12px;
+    border: none; background: transparent; cursor: pointer; text-align: left;
+    border-bottom: 2px solid transparent; position: relative; min-width: 0;
+  }
+  .onglet-etape:hover { background: var(--survol); }
+  .onglet-etape.vue { border-bottom-color: var(--accent); }
+  .onglet-etape .num {
+    width: 24px; height: 24px; border-radius: 99px; display: grid; place-items: center; flex: none;
+    font-weight: 700; font-size: 12px; background: var(--surface-2); color: var(--sourd);
+  }
+  .onglet-etape.faite .num { background: var(--ok-doux); color: var(--ok); }
+  .onglet-etape.active .num { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; }
+  .onglet-etape.alerte .num { background: var(--attention-doux); color: var(--attention); }
+  .onglet-etape .textes { min-width: 0; }
+  .onglet-etape .nom { font-weight: 600; font-size: 13px; white-space: nowrap; }
+  .onglet-etape .sous { font-size: 11.5px; color: var(--discret); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .onglet-etape:not(:last-child)::after {
+    content: ""; position: absolute; right: 0; top: 50%; width: 1px; height: 22px; margin-top: -13px; background: var(--bord);
+  }
+
+  .panneau { flex: 1; min-height: 0; overflow: auto; padding: 22px 28px 28px; }
+  .deux-col { display: grid; grid-template-columns: minmax(380px, 440px) minmax(0, 1fr); gap: 22px; height: 100%; min-height: 460px; }
+  .col { display: flex; flex-direction: column; gap: 16px; min-height: 0; min-width: 0; }
+  .col.gauche { overflow-y: auto; padding-right: 2px; }
+
+  .carte {
+    background: var(--surface); border: 1px solid var(--bord); border-radius: 12px;
+    padding: 18px; box-shadow: var(--ombre);
+  }
+  .carte.etiree { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+  .carte.etiree > .tete-carte { padding: 14px 18px; border-bottom: 1px solid var(--bord); display: flex; align-items: center; gap: 10px; }
+  .carte.etiree > .contenu-defilant { flex: 1; min-height: 0; overflow: auto; }
+  .carte h3, .tete-carte h3 { font-size: 14px; margin: 0; }
+  .carte > h3 { margin-bottom: 12px; }
+  .tete-carte .compteur { margin-left: auto; font-size: 12px; color: var(--discret); }
+  .vide-carte { color: var(--discret); font-size: 13px; padding: 40px 24px; text-align: center; }
+
+  .infos-liste { display: grid; grid-template-columns: 120px 1fr; gap: 7px 12px; font-size: 13px; margin: 0; }
+  .infos-liste dt { color: var(--sourd); }
+  .infos-liste dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+
+  .flux { display: grid; gap: 16px; }
+  .flux-etape { display: grid; grid-template-columns: 24px 1fr; gap: 10px; align-items: start; }
+  .flux-etape .n {
+    width: 22px; height: 22px; border-radius: 99px; border: 1.5px solid var(--bord);
+    display: grid; place-items: center; font-size: 11.5px; font-weight: 700; color: var(--sourd);
+  }
+  .flux-etape p { margin: 1px 0 8px; color: var(--sourd); font-size: 13px; }
+  .flux-etape p b { color: var(--texte); font-weight: 600; }
+
+  textarea, select {
+    width: 100%; padding: 8px 10px; border-radius: 9px; border: 1px solid var(--bord);
+    background: var(--surface-2); outline: none;
+  }
+  textarea:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-doux); background: var(--surface); }
+  textarea.json { min-height: 150px; font: 12px/1.5 ui-monospace, Menlo, monospace; resize: vertical; }
+  select.compact { width: auto; min-width: 220px; }
+
+  .encart { border-radius: 9px; padding: 10px 12px; font-size: 13px; }
+  .encart.erreur { background: var(--erreur-doux); color: var(--erreur); }
+  .encart.ok { background: var(--ok-doux); color: var(--ok); }
+  .encart.attention { background: var(--attention-doux); color: var(--attention); }
+  .encart.info { background: var(--info-doux); color: var(--info); }
+  .encart ul { margin: 6px 0 0; padding-left: 18px; }
+
+  details.repli { margin-top: 10px; }
+  details.repli > summary { cursor: pointer; color: var(--sourd); font-size: 12.5px; }
+  pre.bloc {
+    margin: 8px 0 0; max-height: 240px; overflow: auto; padding: 12px; border-radius: 9px;
+    background: var(--surface-2); font: 12px/1.55 ui-monospace, Menlo, monospace; white-space: pre-wrap; word-break: break-word;
+  }
+  pre.code { margin: 0; padding: 16px 18px; font: 12px/1.6 ui-monospace, Menlo, monospace; white-space: pre-wrap; word-break: break-word; }
+  .texte-long { padding: 16px 20px; font-size: 13.5px; line-height: 1.75; white-space: pre-wrap; }
+
+  table.bilingue { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+  table.bilingue col.id { width: 58px; }
+  table.bilingue th {
+    position: sticky; top: 0; background: var(--surface); z-index: 1; text-align: left;
+    font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--discret);
+    padding: 10px 14px; border-bottom: 1px solid var(--bord);
+  }
+  table.bilingue td { padding: 10px 14px; border-bottom: 1px solid var(--bord); vertical-align: top; line-height: 1.55; }
+  table.bilingue tr:hover td { background: var(--survol); }
+  table.bilingue td.id { width: 54px; color: var(--discret); font: 11.5px ui-monospace, Menlo, monospace; padding-top: 12px; }
+  table.bilingue td.vide { color: var(--discret); font-style: italic; }
+
+  .grille-chunks { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; padding: 16px 18px; }
+  .section-titre { font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--discret); font-weight: 650; padding: 16px 18px 0; }
+  .chunk { border: 1px solid var(--bord); border-radius: 10px; padding: 12px 13px; background: var(--surface); }
+  .chunk .expr { font-weight: 650; font-size: 14.5px; }
+  .chunk .sens { color: var(--sourd); font-size: 13px; margin: 2px 0 6px; }
+  .chunk .ex { font-size: 12.5px; font-style: italic; }
+  .chunk .ex-fr { font-size: 12px; color: var(--discret); }
+  .chunk .tags { display: flex; gap: 5px; margin-bottom: 6px; flex-wrap: wrap; }
+
+  .checklist { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+  .checklist li { display: flex; gap: 10px; align-items: center; font-size: 13.5px; }
+  .checklist .ic { width: 20px; height: 20px; border-radius: 99px; display: grid; place-items: center; font-size: 11px; flex: none; }
+  .checklist .ic.oui { background: var(--ok-doux); color: var(--ok); }
+  .checklist .ic.non { background: var(--surface-2); color: var(--discret); }
+  .checklist .ic.alerte { background: var(--attention-doux); color: var(--attention); }
+
+  .interrupteur { display: inline-flex; align-items: center; gap: 9px; cursor: pointer; font-size: 13px; color: var(--sourd); }
+  .interrupteur input { appearance: none; width: 34px; height: 20px; border-radius: 99px; background: var(--bord); position: relative; cursor: pointer; transition: background .2s; margin: 0; flex: none; }
+  .interrupteur input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 99px; background: #fff; transition: transform .2s; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+  .interrupteur input:checked { background: var(--ok); }
+  .interrupteur input:checked::after { transform: translateX(14px); }
+
+  audio { width: 100%; height: 38px; display: block; }
+  .lecteur + .lecteur { margin-top: 16px; }
+  .lecteur .legende { font-size: 12.5px; color: var(--sourd); margin-bottom: 6px; display: flex; gap: 8px; align-items: center; }
+
+  .verrou-plein { display: grid; place-items: center; height: 100%; min-height: 300px; text-align: center; color: var(--sourd); }
+  .verrou-plein .grand { font-size: 32px; margin-bottom: 6px; }
+  .verrou-plein h2 { color: var(--texte); font-size: 16px; margin: 0 0 4px; }
+
+  /* ---------- accueil ---------- */
+  .accueil { display: grid; place-items: center; height: 100%; padding: 40px; }
+  .accueil-carte { max-width: 860px; text-align: center; }
+  .accueil h2 { font-size: 22px; margin: 0 0 8px; }
+  .accueil p { color: var(--sourd); margin: 0 0 28px; font-size: 14.5px; }
+  .parcours { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 30px; text-align: left; }
+  .parcours div { background: var(--surface); border: 1px solid var(--bord); border-radius: 12px; padding: 14px; box-shadow: var(--ombre); }
+  .parcours b { display: block; font-size: 13px; margin: 6px 0 2px; }
+  .parcours span { font-size: 12px; color: var(--sourd); }
+  .parcours .n { width: 22px; height: 22px; border-radius: 99px; display: grid; place-items: center; font-size: 11.5px; font-weight: 700; background: var(--accent-doux); color: var(--accent); }
+
+  /* ---------- dialogue d'ajout ---------- */
+  dialog {
+    border: 1px solid var(--bord); border-radius: 16px; padding: 0; width: 560px;
+    background: var(--surface); color: var(--texte); box-shadow: 0 24px 60px rgba(0,0,0,.2);
+  }
+  dialog::backdrop { background: rgba(10, 12, 16, .35); }
+  .dialogue-tete { padding: 18px 22px 4px; }
+  .dialogue-tete h2 { margin: 0; font-size: 17px; }
+  .dialogue-tete p { margin: 4px 0 0; color: var(--sourd); font-size: 13px; }
+  .dialogue-corps { padding: 14px 22px; display: grid; gap: 14px; }
+  .dialogue-pied { padding: 14px 22px 18px; display: flex; gap: 8px; justify-content: flex-end; align-items: center; border-top: 1px solid var(--bord); }
+  .dialogue-pied .astuce { margin-right: auto; font-size: 12px; color: var(--discret); }
+  .champ label { display: block; font-size: 12.5px; font-weight: 600; color: var(--sourd); margin-bottom: 6px; }
+  .rangee-champs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .segment { display: flex; background: var(--surface-2); border-radius: 9px; padding: 3px; gap: 2px; }
+  .segment button { flex: 1; border: none; background: transparent; padding: 6px 8px; border-radius: 7px; cursor: pointer; font-size: 13px; color: var(--sourd); }
+  .segment button.actif { background: var(--surface); color: var(--texte); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+
+  /* ---------- idées de contenus ---------- */
+  dialog.large { width: min(1060px, calc(100vw - 48px)); height: min(760px, calc(100vh - 48px)); }
+  dialog.large[open] { display: flex; flex-direction: column; }
+  dialog.large form.barre-idees { display: contents; }
+  .barre-idees-corps { padding: 12px 22px 14px; display: grid; gap: 12px; border-bottom: 1px solid var(--bord); }
+  .ligne-recherche { display: flex; gap: 8px; }
+  .ligne-recherche .recherche { flex: 1; margin: 0; }
+  .ligne-recherche .recherche input { padding-right: 10px; }
+  .ligne-filtres { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .ligne-filtres .segment { flex: none; }
+  .ligne-filtres .segment button { flex: none; padding: 5px 11px; }
+  .ligne-filtres .legende-filtre { font-size: 12px; color: var(--discret); font-weight: 600; }
+  .themes { display: flex; gap: 6px; flex-wrap: wrap; }
+  .theme-rapide {
+    border: 1px solid var(--bord); background: var(--surface); border-radius: 99px; padding: 3px 11px;
+    font-size: 12.5px; cursor: pointer; color: var(--sourd);
+  }
+  .theme-rapide:hover { background: var(--survol); color: var(--texte); }
+  .theme-rapide.actif { background: var(--accent-doux); border-color: transparent; color: var(--accent); font-weight: 600; }
+  .resultats-idees { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 22px 22px; background: var(--fond); }
+  .grille-idees { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+  .idee { background: var(--surface); border: 1px solid var(--bord); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; box-shadow: var(--ombre); }
+  .idee .vignette { position: relative; aspect-ratio: 16 / 9; background: var(--surface-2); display: block; }
+  .idee .vignette img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .idee .vignette .duree {
+    position: absolute; right: 6px; bottom: 6px; padding: 0 5px; border-radius: 4px;
+    background: rgba(0,0,0,.78); color: #fff; font-size: 11.5px; font-weight: 600; line-height: 18px; font-variant-numeric: tabular-nums;
+  }
+  .idee .corps { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+  .idee .titre { font-weight: 600; font-size: 13px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .idee .source { font-size: 12px; color: var(--sourd); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .idee .pied { margin-top: auto; display: flex; gap: 6px; align-items: center; padding-top: 4px; }
+  .idee .pied .tag { margin-right: auto; }
+  .note-idees { font-size: 12px; color: var(--discret); margin-bottom: 10px; }
+
+  /* ---------- notifications ---------- */
+  #toasts { position: fixed; right: 24px; bottom: 24px; display: grid; gap: 8px; z-index: 100; width: 380px; }
+  .toast {
+    background: var(--texte); color: #fff; padding: 11px 14px; border-radius: 10px;
+    font-size: 13px; box-shadow: 0 10px 30px rgba(0,0,0,.2); animation: monte .2s ease-out;
+  }
+  .toast.erreur { background: var(--erreur); }
+  .toast.ok { background: var(--ok); }
+  @keyframes monte { from { transform: translateY(8px); opacity: 0; } }
+</style>
+</head>
+<body>
+
+<header class="barre-app">
+  <div class="logo"><span class="pastille-logo">🎓</span>Atelier English Fluency</div>
+  <span class="espaceur"></span>
+  <span class="stats" id="stats"></span>
+  <button class="btn" data-action="ouvrir-idees">💡 Idées <kbd>I</kbd></button>
+  <button class="btn primaire" data-action="ouvrir-ajout">＋ Ajouter des vidéos <kbd>N</kbd></button>
+</header>
+
+<div class="app">
+  <aside class="barre-laterale">
+    <div class="outils-liste">
+      <div class="recherche"><input type="text" id="recherche" placeholder="Rechercher" autocomplete="off"><kbd>/</kbd></div>
+      <div class="filtres" id="filtres"></div>
+    </div>
+    <div class="liste" id="liste"></div>
+    <div class="pied-lateral">
+      <span><kbd>↑</kbd> <kbd>↓</kbd> naviguer</span>
+      <span><kbd>1</kbd>–<kbd>5</kbd> étapes</span>
+      <span><kbd>⌘</kbd> <kbd>↵</kbd> valider</span>
+    </div>
+  </aside>
+  <main class="travail" id="travail"></main>
+</div>
+
+<dialog id="dialogue-ajout">
+  <form id="form-ajout">
+    <div class="dialogue-tete">
+      <h2>Ajouter des vidéos</h2>
+      <p>Chaque lien devient un contenu bilingue : audio anglais, textes EN et FR, chunks et grammaire.</p>
+    </div>
+    <div class="dialogue-corps">
+      <div class="champ">
+        <label for="liens">Liens YouTube — un par ligne</label>
+        <textarea id="liens" rows="5" placeholder="https://www.youtube.com/watch?v=…" spellcheck="false"></textarea>
+      </div>
+      <div class="champ">
+        <label>Langue de la vidéo</label>
+        <div class="segment" id="choix-langue">
+          <button type="button" data-langue="auto" class="actif">Détection auto</button>
+          <button type="button" data-langue="fr">Français</button>
+          <button type="button" data-langue="en">Anglais</button>
+        </div>
+      </div>
+      <div class="rangee-champs">
+        <div class="champ">
+          <label for="niveau">Niveau cible</label>
+          <select id="niveau"><option>A2</option><option selected>B1</option><option>B2</option></select>
+        </div>
+        <div class="champ">
+          <label for="theme">Thème</label>
+          <select id="theme">
+            <option value="" selected>Aucun</option>
+            <option>Travail</option><option>Quotidien</option><option>Culture</option>
+            <option>Tech</option><option>Voyage</option><option>Autre</option>
+          </select>
+        </div>
+      </div>
+      <label class="interrupteur"><input type="checkbox" id="auto-publier">
+        Publier automatiquement dès que le contenu est prêt</label>
+    </div>
+    <div class="dialogue-pied">
+      <span class="astuce"><kbd>⌘</kbd> <kbd>↵</kbd> pour lancer</span>
+      <button type="button" class="btn" data-action="fermer-ajout">Annuler</button>
+      <button type="submit" class="btn primaire" id="bouton-preparer">Préparer les contenus</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dialogue-idees" class="large">
+  <form class="barre-idees" id="form-idees">
+    <div class="dialogue-tete" style="display:flex;align-items:flex-start;gap:12px">
+      <div style="flex:1"><h2>Idées de contenus</h2>
+        <p>Cherchez des vidéos sans passer par YouTube et ajoutez-les à l'atelier en un clic (niveau B1).</p></div>
+      <button type="button" class="btn fantome" data-action="fermer-idees" title="Fermer (Échap)">✕</button>
+    </div>
+    <div class="barre-idees-corps">
+      <div class="ligne-recherche">
+        <div class="recherche"><input type="search" id="q-idees" placeholder="Sujet, en anglais ou en français : artificial intelligence, inflation, black holes…" autocomplete="off" spellcheck="false"></div>
+        <button type="submit" class="btn primaire" id="bouton-idees">Rechercher</button>
+      </div>
+      <div class="themes" id="themes-idees"></div>
+      <div class="ligne-filtres">
+        <span class="legende-filtre">Langue</span>
+        <div class="segment" id="langue-idees">
+          <button type="button" data-valeur="en" class="actif">Anglais</button>
+          <button type="button" data-valeur="fr">Français</button>
+        </div>
+        <span class="legende-filtre">Durée</span>
+        <div class="segment" id="duree-idees">
+          <button type="button" data-valeur="courte">Courte &lt; 4 min</button>
+          <button type="button" data-valeur="moyenne" class="actif">Moyenne 4–20 min</button>
+          <button type="button" data-valeur="longue">Longue &gt; 20 min</button>
+        </div>
+      </div>
+    </div>
+  </form>
+  <div class="resultats-idees" id="resultats-idees"></div>
+</dialog>
+
+<div id="toasts"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const echapper = (s) => String(s ?? "").replace(/[&<>"']/g,
+  (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const memoire = {
+  lire(cle) { try { return localStorage.getItem(cle); } catch (e) { return null; } },
+  ecrire(cle, v) { try { localStorage.setItem(cle, v); } catch (e) {} },
+};
+
+async function api(chemin, corps) {
+  const options = corps === undefined ? {} : {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corps) };
+  const reponse = await fetch(chemin, options);
+  return reponse.json();
+}
+
+function toast(texte, type = "") {
+  const el = document.createElement("div");
+  el.className = "toast " + type;
+  el.textContent = texte;
+  $("toasts").appendChild(el);
+  setTimeout(() => el.remove(), type === "erreur" ? 7000 : 4000);
+}
+
+/* ================= état ================= */
+const etat = {
+  bundles: [], jobs: [], imports: {}, tts: {},
+  selection: decodeURIComponent(location.hash.slice(1)) || null,
+  detail: null,
+  ordre: [],        // slugs dans l'ordre affiché (navigation clavier)
+  filtre: memoire.lire("filtre") || "tous",
+  recherche: "",
+  langue: "auto",
+  onglet: {},       // étape affichée choisie à la main, par slug
+  brouillons: {},   // réponse ChatGPT en cours de collage, par slug+type
+  retours: {},      // résultat de la dernière validation, par slug+type
+  prompts: {},      // dernier prompt copié, par slug+type
+  payloads: {},     // aperçu des données publiées, par slug+révision
+};
+
+const STATUTS = {
+  queued: ["En attente", "gris"], extracting: ["Extraction", "bleu"],
+  transcribing: ["MacWhisper…", "bleu"],
+  awaiting_translation: ["Traduction", "orange"],
+  awaiting_pedagogy: ["Analyse", "orange"],
+  awaiting_tts: ["Audio EN à générer", "orange"],
+  awaiting_audio: ["Audio manquant", "rouge"],
+  generating_tts: ["Audio EN…", "bleu"],
+  ready_to_publish: ["Prêt à publier", "accent"],
+  publishing: ["Publication…", "bleu"],
+  published: ["Publié", "vert"],
+  publish_failed: ["Échec publication", "rouge"],
+  doublon: ["Doublon", "gris"], failed: ["Échec", "rouge"], invalide: ["Invalide", "rouge"],
+};
+const pill = (statut) => {
+  const [l, c] = STATUTS[statut] || [statut, "gris"];
+  return `<span class="pill ${c}">${echapper(l)}</span>`;
+};
+const dateCourte = (iso) => iso
+  ? new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "";
+const sens = (src) => src ? `${src.toUpperCase()} → ${src === "fr" ? "EN" : "FR"}` : "?";
+
+const PROCHAINE = {
+  awaiting_translation: (b) => `Traduire ${sens(b.etat.sourceLanguage)} avec ChatGPT`,
+  awaiting_pedagogy: () => "Analyse pédagogique avec ChatGPT",
+  awaiting_tts: () => "Générer l'audio anglais",
+  awaiting_audio: () => "Audio anglais original manquant",
+  generating_tts: (b) => `Audio EN en cours… ${etat.tts[b.slug]?.progression ?? 0} %`,
+  ready_to_publish: () => "Prêt à publier",
+  publishing: () => "Publication en cours…",
+  published: (b) => `Publié le ${dateCourte(b.etat.publication?.publishedAt)}`,
+  publish_failed: () => "Réessayer la publication",
+  failed: (b) => b.etat.raisons.find((r) => r.startsWith("erreur")) || "Erreur de préparation",
+  invalide: () => "meta.json manquant",
+};
+
+function statutAffiche(b) {
+  const t = etat.tts[b.slug];
+  if (t && t.statut === "en cours") return "generating_tts";
+  return b.etat.statut;
+}
+function etapesFaites(b) {
+  const bd = b.etat.badges;
+  return [b.segments > 0, bd.texteEn && bd.texteFr, bd.pedagogie, bd.audioEn, bd.publication];
+}
+
+const FILTRES = [
+  ["tous", "Tous", () => true],
+  ["completer", "À faire", (s) => ["awaiting_translation", "awaiting_pedagogy", "awaiting_tts", "ready_to_publish"].includes(s)],
+  ["encours", "En cours", (s) => ["generating_tts", "publishing", "extracting", "transcribing", "queued"].includes(s)],
+  ["erreur", "Erreurs", (s) => ["failed", "publish_failed", "awaiting_audio", "invalide", "doublon"].includes(s)],
+  ["publies", "Publiés", (s) => s === "published"],
+];
+
+/* ================= barre latérale ================= */
+const jobVisible = (j) => ["queued", "extracting", "transcribing", "failed", "doublon"].includes(j.statut);
+
+function rendreFiltres() {
+  const statuts = etat.bundles.map(statutAffiche).concat(etat.jobs.filter(jobVisible).map((j) => j.statut));
+  $("filtres").innerHTML = FILTRES.map(([cle, libelle, test]) =>
+    `<button class="filtre ${etat.filtre === cle ? "actif" : ""}" data-action="filtre" data-filtre="${cle}">${libelle}<span class="nb">${statuts.filter(test).length}</span></button>`
+  ).join("");
+}
+
+function rendreJob(j) {
+  const enCours = ["queued", "extracting", "transcribing"].includes(j.statut);
+  const barre = enCours
+    ? `<div class="barre ${j.statut === "extracting" && j.progression != null ? "" : "indeterminee"}"><div style="width:${j.progression || 0}%"></div></div>` : "";
+  const actions = j.statut === "failed"
+    ? `<div class="actions">
+         <button class="btn petit" data-action="relancer" data-job="${j.id}">↻ Relancer</button>
+         <button class="btn petit" data-action="relancer" data-job="${j.id}" data-langue="fr">en FR</button>
+         <button class="btn petit" data-action="relancer" data-job="${j.id}" data-langue="en">en EN</button>
+         <button class="btn petit fantome" data-action="masquer" data-job="${j.id}">Masquer</button></div>`
+    : j.statut === "doublon"
+      ? `<div class="actions"><button class="btn petit fantome" data-action="masquer" data-job="${j.id}">Masquer</button></div>` : "";
+  return `<div class="job">
+    <div class="haut"><span class="titre" title="${echapper(j.url)}">${echapper(j.titre || j.url)}</span>${pill(j.statut)}</div>
+    ${barre}${j.message ? `<div class="message">${echapper(j.message)}</div>` : ""}${actions}
+  </div>`;
+}
+
+function rendreListe() {
+  const [, , test] = FILTRES.find(([cle]) => cle === etat.filtre) || FILTRES[0];
+  const q = etat.recherche.trim().toLowerCase();
+  const correspond = (titre) => !q || (titre || "").toLowerCase().includes(q);
+  const jobs = etat.jobs.filter(jobVisible).filter((j) => test(j.statut) && correspond(j.titre || j.url));
+  const bundles = etat.bundles
+    .filter((b) => test(statutAffiche(b)) && correspond(b.titre))
+    .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+  etat.ordre = bundles.map((b) => b.slug);
+
+  let html = "";
+  if (jobs.length) html += `<div class="titre-groupe">En préparation</div>` + jobs.map(rendreJob).join("");
+  if (bundles.length) {
+    if (jobs.length) html += `<div class="titre-groupe">Contenus</div>`;
+    html += bundles.map((b) => {
+      const statut = statutAffiche(b);
+      const faites = etapesFaites(b);
+      const premiere = faites.indexOf(false);
+      const points = faites.map((f, i) => `<i class="${f ? "fait" : i === premiere ? "encours" : ""}"></i>`).join("");
+      return `<button class="ligne-bundle ${etat.selection === b.slug ? "active" : ""}" data-action="choisir" data-slug="${echapper(b.slug)}" title="${echapper(b.titre)}">
+        <span class="haut"><span class="titre">${echapper(b.titre)}</span>${pill(statut)}</span>
+        <span class="infos"><span class="tag">${sens(b.etat.sourceLanguage)}</span>
+          <span class="points">${points}</span>
+          <span class="prochaine">${echapper((PROCHAINE[statut] || (() => ""))(b))}</span></span>
+      </button>`;
+    }).join("");
+  }
+  if (!html) html = `<div class="liste-vide">${etat.bundles.length || etat.jobs.filter(jobVisible).length ? "Aucun contenu ne correspond." : "Aucun contenu pour le moment."}</div>`;
+  $("liste").innerHTML = html;
+  $("liste").querySelector(".ligne-bundle.active")?.scrollIntoView({ block: "nearest" });
+
+  const publies = etat.bundles.filter((b) => b.etat.statut === "published").length;
+  $("stats").textContent = etat.bundles.length
+    ? `${etat.bundles.length} contenu${etat.bundles.length > 1 ? "s" : ""} · ${publies} publié${publies > 1 ? "s" : ""}` : "";
+}
+
+/* ================= zone de travail ================= */
+function rendreAccueil() {
+  const aucun = !etat.bundles.length && !etat.jobs.filter(jobVisible).length;
+  const etapes = [["Source", "Audio extrait, transcrit par MacWhisper"], ["Traduction", "Prompt copié, réponse ChatGPT collée"],
+    ["Analyse", "Chunks et grammaire, même principe"], ["Audio anglais", "Kokoro sur ce Mac (vidéo française)"], ["Publication", "Envoi vers English Fluency"]];
+  return `<div class="accueil"><div class="accueil-carte">
+    <h2>${aucun ? "Commencez par une vidéo" : "Sélectionnez un contenu"}</h2>
+    <p>${aucun ? "Collez un ou plusieurs liens YouTube, en français ou en anglais. L'atelier vous guide ensuite jusqu'à la publication."
+              : "Choisissez un contenu dans la liste de gauche (ou utilisez ↑ ↓) pour poursuivre sa préparation."}</p>
+    <div class="parcours">${etapes.map(([t, d], i) => `<div><span class="n">${i + 1}</span><b>${t}</b><span>${d}</span></div>`).join("")}</div>
+    ${aucun ? `<button class="btn primaire grand" data-action="ouvrir-ajout">＋ Ajouter des vidéos</button>` : ""}
+  </div></div>`;
+}
+
+const cle = (slug, type) => slug + "::" + type;
+
+function blocFlux(d, type, sectionLibelle) {
+  const k = cle(d.slug, type);
+  const retour = etat.retours[k];
+  const prompt = etat.prompts[k];
+  const retourHtml = !retour ? "" : retour.erreurs
+    ? `<div class="encart erreur"><b>${echapper(retour.erreurs[0])}</b>${retour.erreurs.length > 1
+        ? `<ul>${retour.erreurs.slice(1).map((e) => `<li>${echapper(e)}</li>`).join("")}</ul>` : ""}</div>`
+    : `<div class="encart ok">✓ ${echapper(retour.resume)}</div>`;
+  const exemple = type === "traduction" ? '{"segments": [{"id": "s001", "text": "…"}]}' : '{"chunks": [ … ], "grammarPoints": [ … ]}';
+  return `<div class="flux">
+    <div class="flux-etape"><span class="n">1</span><div>
+      <p><b>Copiez le prompt</b>${sectionLibelle ? ` — ${echapper(sectionLibelle)}` : ""}</p>
+      <div class="actions">
+        <button class="btn primaire" data-action="prompt" data-slug="${echapper(d.slug)}" data-type="${type}">📋 Copier le prompt</button>
+        ${prompt ? `<span class="pill vert">Copié</span>` : ""}
+      </div>
+      ${prompt ? `<details class="repli"><summary>Voir le prompt</summary><pre class="bloc">${echapper(prompt)}</pre></details>` : ""}
+    </div></div>
+    <div class="flux-etape"><span class="n">2</span><div>
+      <p><b>Collez-le dans ChatGPT</b> et copiez sa réponse JSON. <a href="https://chatgpt.com/" target="_blank" rel="noopener">Ouvrir ChatGPT ↗</a></p>
+    </div></div>
+    <div class="flux-etape"><span class="n">3</span><div>
+      <p><b>Collez la réponse ici</b>, elle est vérifiée avant d'être enregistrée.</p>
+      <textarea class="json" data-brouillon="${echapper(k)}" data-slug="${echapper(d.slug)}" data-type="${type}" spellcheck="false" placeholder="${echapper(exemple)}">${echapper(etat.brouillons[k] || "")}</textarea>
+      <div class="actions" style="margin-top:8px">
+        <button class="btn primaire" data-action="coller" data-slug="${echapper(d.slug)}" data-type="${type}">Valider et enregistrer <kbd>⌘↵</kbd></button>
+      </div>
+    </div></div>
+    ${retourHtml}
+  </div>`;
+}
+
+function lecteur(slug, quel, legende, version) {
+  return `<div class="lecteur"><div class="legende">${legende}</div>
+    <div data-audio="${echapper(slug)}|${quel}|${echapper(version || "")}"></div></div>`;
+}
+
+function verrou(titre, texte) {
+  return `<div class="verrou-plein"><div><div class="grand">🔒</div><h2>${titre}</h2><div>${texte}</div></div></div>`;
+}
+
+const NOMS_ETAPES = ["Source", "Traduction", "Analyse", "Audio anglais", "Publication"];
+
+function resumes(d) {
+  const e = d.etat, bd = e.badges, p = d.pedagogie, pub = d.meta.publication || {};
+  return [
+    d.segments.length ? `${d.segments.length} segments` : "Transcription",
+    bd.texteEn && bd.texteFr ? "EN et FR complets" : `${d.traduction.faits} / ${d.traduction.total} segments`,
+    bd.pedagogie ? `${p.chunks.length} chunks · ${p.grammarPoints.length} grammaire` : e.pedagogieObsolete ? "À refaire" : "À faire",
+    bd.audioEn ? (e.sourceLanguage === "fr" ? "Kokoro, à jour" : "Audio original") : e.audioEnObsolete ? "Obsolète" : "À générer",
+    bd.publication ? `Publié le ${dateCourte(pub.publishedAt)}` : e.ok ? "Prêt" : "En attente",
+  ];
+}
+
+function panneauEtape(d, i) {
+  const e = d.etat, bd = e.badges, src = e.sourceLanguage;
+  const textesOk = bd.texteEn && bd.texteFr;
+  const s = echapper(d.slug);
+
+  if (i === 0) {
+    const p = d.meta.processing || {};
+    return `<div class="deux-col">
+      <div class="col gauche">
+        <div class="carte"><h3>Vidéo source</h3>
+          <dl class="infos-liste">
+            <dt>Langue</dt><dd>${src === "fr" ? "Français" : src === "en" ? "Anglais" : "Inconnue"}</dd>
+            <dt>Transcription</dt><dd>${echapper(p.transcriptionProvider || "—")}</dd>
+            <dt>Niveau cible</dt><dd>${echapper(d.meta.targetLevel || "—")}</dd>
+            <dt>Thème</dt><dd>${echapper(d.meta.topic || "—")}</dd>
+            <dt>Ajoutée le</dt><dd>${d.meta.createdAt ? new Date(d.meta.createdAt).toLocaleString("fr-FR") : "—"}</dd>
+            <dt>Lien</dt><dd>${d.meta.sourceUrl ? `<a href="${echapper(d.meta.sourceUrl)}" target="_blank" rel="noopener">${echapper(d.meta.sourceUrl)}</a>` : "—"}</dd>
+          </dl></div>
+        ${d.audio.original ? `<div class="carte">${lecteur(d.slug, "original",
+          src === "fr" ? "Audio original <b>français</b> — conservé, jamais publié" : "Audio original <b>anglais</b> — c'est lui qui sera publié")}</div>` : ""}
+      </div>
+      <div class="col">
+        <div class="carte etiree"><div class="tete-carte"><h3>Transcription ${src ? src.toUpperCase() : ""}</h3><span class="compteur">${d.segments.length} segments</span></div>
+          <div class="contenu-defilant" data-defile="transcript">${d.transcript ? `<div class="texte-long">${echapper(d.transcript)}</div>` : `<div class="vide-carte">Pas de transcription.</div>`}</div></div>
+      </div></div>`;
+  }
+
+  if (i === 1) {
+    const t = d.traduction, cible = src === "fr" ? "en" : "fr";
+    const pct = t.total ? Math.round(t.faits / t.total * 100) : 0;
+    let section = "";
+    if (t.lotsTotal > 1 && !textesOk) {
+      const premier = d.segments.findIndex((x) => !(x[cible] || "").trim());
+      section = `section ${Math.floor(premier / 40) + 1} sur ${t.lotsTotal}`;
+    }
+    const gauche = !src ? `<div class="carte"><div class="encart erreur">Langue source inconnue.</div></div>` : `
+      <div class="carte">
+        <h3>Traduction ${src === "fr" ? "français → anglais britannique" : "anglais → français"}</h3>
+        <div style="display:flex;justify-content:space-between;font-size:12.5px;color:var(--sourd);margin-bottom:6px"><span>Progression</span><span>${t.faits} / ${t.total} segments</span></div>
+        <div class="barre"><div style="width:${pct}%"></div></div>
+      </div>
+      ${e.ancienFormat && !textesOk ? `<div class="encart attention">Contenu au format précédent : refaites la traduction segmentée (les anciens fichiers sont conservés).</div>` : ""}
+      ${textesOk ? `<div class="encart ok">✓ Les deux textes sont complets et appariés segment par segment.</div>` : `<div class="carte">${blocFlux(d, "traduction", section)}</div>`}`;
+    const lignes = d.segments.map((x) => `<tr><td class="id">${echapper(x.id)}</td>
+      <td class="${x.en ? "" : "vide"}">${echapper(x.en || "à traduire")}</td>
+      <td class="${x.fr ? "" : "vide"}">${echapper(x.fr || "à traduire")}</td></tr>`).join("");
+    return `<div class="deux-col"><div class="col gauche">${gauche}</div>
+      <div class="col"><div class="carte etiree"><div class="tete-carte"><h3>Aperçu bilingue</h3><span class="compteur">${t.faits} / ${t.total} traduits</span></div>
+        <div class="contenu-defilant" data-defile="bilingue"><table class="bilingue"><colgroup><col class="id"><col><col></colgroup><thead><tr><th></th><th>Anglais</th><th>Français</th></tr></thead><tbody>${lignes}</tbody></table></div></div></div></div>`;
+  }
+
+  if (i === 2) {
+    if (!textesOk) return verrou("Analyse pas encore disponible", "Terminez d'abord la traduction : l'analyse porte sur le texte anglais complet.");
+    const p = d.pedagogie;
+    const section = p.lotsTotal > 1 && !bd.pedagogie ? `section ${p.lotsAnalyses + 1} sur ${p.lotsTotal}` : "";
+    const parType = {};
+    p.chunks.forEach((c) => { parType[c.type] = (parType[c.type] || 0) + 1; });
+    const gauche = `
+      ${e.pedagogieObsolete ? `<div class="encart attention">Le texte anglais a changé : l'analyse doit être refaite.</div>` : ""}
+      ${bd.pedagogie
+        ? `<div class="carte"><h3>Analyse validée</h3><dl class="infos-liste">
+            <dt>Chunks</dt><dd>${p.chunks.length}</dd><dt>Grammaire</dt><dd>${p.grammarPoints.length}</dd>
+            ${Object.entries(parType).map(([t, n]) => `<dt>${echapper(t.replace("_", " "))}</dt><dd>${n}</dd>`).join("")}</dl></div>`
+        : `<div class="carte">${blocFlux(d, "pedagogie", section)}</div>`}`;
+    const carte = (c, grammaire) => `<div class="chunk">
+      <div class="tags"><span class="tag">${echapper(c.level)}</span><span class="tag">${grammaire ? "grammaire" : echapper((c.type || "").replace("_", " "))}</span><span class="tag">${echapper(c.sourceSegmentId)}</span></div>
+      <div class="expr">${echapper(grammaire ? c.title : c.expression)}</div>
+      <div class="sens">${echapper(grammaire ? c.explanationFr : c.meaningFr)}</div>
+      ${c.exampleEn ? `<div class="ex">« ${echapper(c.exampleEn)} »</div>` : ""}
+      ${c.exampleFr ? `<div class="ex-fr">${echapper(c.exampleFr)}</div>` : ""}</div>`;
+    const droite = p.chunks.length || p.grammarPoints.length
+      ? `${p.chunks.length ? `<div class="section-titre">Chunks</div><div class="grille-chunks">${p.chunks.map((c) => carte(c, false)).join("")}</div>` : ""}
+         ${p.grammarPoints.length ? `<div class="section-titre">Points de grammaire</div><div class="grille-chunks">${p.grammarPoints.map((g) => carte(g, true)).join("")}</div>` : ""}`
+      : `<div class="vide-carte">${bd.pedagogie ? "Analyse faite : aucun élément particulier retenu." : "Les chunks et points de grammaire validés apparaîtront ici."}</div>`;
+    return `<div class="deux-col"><div class="col gauche">${gauche}</div>
+      <div class="col"><div class="carte etiree"><div class="tete-carte"><h3>Chunks et grammaire</h3><span class="compteur">${p.chunks.length} chunks · ${p.grammarPoints.length} grammaire</span></div>
+        <div class="contenu-defilant" data-defile="chunks">${droite}</div></div></div></div>`;
+  }
+
+  if (i === 3) {
+    const tts = etat.tts[d.slug];
+    const enCours = tts && tts.statut === "en cours";
+    let gauche;
+    if (src === "en") {
+      gauche = `<div class="carte"><h3>Audio anglais</h3>${d.audio.original
+        ? `<div class="encart ok">L'audio original est déjà en anglais : il sera publié tel quel, sans synthèse.</div>`
+        : `<div class="encart erreur">Audio original manquant.</div>`}</div>`;
+    } else if (!bd.texteEn) {
+      return verrou("Audio anglais pas encore disponible", "Kokoro a besoin du texte anglais complet : terminez la traduction.");
+    } else {
+      const voix = [["bf_emma", "Emma — britannique ♀"], ["bf_isabella", "Isabella — britannique ♀"],
+        ["bm_george", "George — britannique ♂"], ["bm_fable", "Fable — britannique ♂"],
+        ["af_heart", "Heart — américaine ♀"], ["af_bella", "Bella — américaine ♀"]]
+        .map(([v, l]) => `<option value="${v}" ${(d.meta.ttsVoice || "bf_emma") === v ? "selected" : ""}>${l}</option>`).join("");
+      gauche = `
+        ${e.audioEnObsolete ? `<div class="encart attention">Le texte anglais a changé depuis la dernière génération : régénérez l'audio.</div>` : ""}
+        ${tts && tts.statut === "echec" ? `<div class="encart erreur">${echapper(tts.message)}</div>` : ""}
+        <div class="carte"><h3>Synthèse Kokoro</h3>
+          <p style="margin:0 0 14px;color:var(--sourd);font-size:13px">Kokoro lit le texte anglais validé et crée un second fichier : l'audio français reste intact.</p>
+          <div class="champ"><label for="voix-${s}">Voix</label>
+            <select class="compact" id="voix-${s}" ${enCours ? "disabled" : ""}>${voix}</select></div>
+          <div class="actions" style="margin-top:14px">
+            <button class="btn ${d.audio.en && !e.audioEnObsolete ? "" : "primaire"}" data-action="tts" data-slug="${s}" ${enCours ? "disabled" : ""}>🔊 ${d.audio.en ? "Régénérer l'audio anglais" : "Générer l'audio anglais"}</button>
+          </div>
+          ${enCours ? `<div style="margin-top:16px"><div style="font-size:12.5px;color:var(--sourd);margin-bottom:6px">${echapper(tts.message || "Génération…")}${tts.progression != null ? ` — ${tts.progression} %` : ""}</div>
+            <div class="barre ${tts.progression == null ? "indeterminee" : ""}"><div style="width:${tts.progression || 0}%"></div></div></div>` : ""}
+        </div>`;
+    }
+    const lecteurs = `<div class="carte">
+      ${d.audio.original ? lecteur(d.slug, "original", `Original ${src === "fr" ? "<b>français</b> <span class='tag'>non publié</span>" : "<b>anglais</b> <span class='tag'>publié</span>"}`) : ""}
+      ${src === "fr" ? (d.audio.en && !enCours
+        ? lecteur(d.slug, "en", `Anglais <b>Kokoro</b>${d.meta.ttsVoice ? ` · ${echapper(d.meta.ttsVoice)}` : ""} <span class="tag">publié</span>`, d.audio.version)
+        : `<div class="lecteur"><div class="legende">Anglais <b>Kokoro</b></div><div class="vide-carte" style="padding:14px">${enCours ? "Génération en cours…" : "Pas encore généré."}</div></div>`) : ""}
+    </div>`;
+    const texteEn = src === "fr" ? `<div class="carte etiree"><div class="tete-carte"><h3>Texte lu par Kokoro</h3></div>
+      <div class="contenu-defilant" data-defile="texte-en"><div class="texte-long">${echapper(d.segments.map((x) => x.en || "").join("\n"))}</div></div></div>` : "";
+    return `<div class="deux-col"><div class="col gauche">${gauche}</div><div class="col">${lecteurs}${texteEn}</div></div>`;
+  }
+
+  // Publication
+  const imp = etat.imports[d.slug];
+  const enCours = imp && imp.statut === "en cours";
+  const pub = d.meta.publication || {};
+  const items = [
+    [bd.texteEn, "Texte anglais intégral"], [bd.texteFr, "Texte français intégral"],
+    [bd.pedagogie, "Chunks et grammaire validés", e.pedagogieObsolete],
+    [bd.audioEn, src === "fr" ? "Audio anglais (Kokoro) à jour" : "Audio anglais original", e.audioEnObsolete],
+    [bd.meta, "Métadonnées valides"],
+  ].map(([ok, l, alerte]) => `<li><span class="ic ${ok ? "oui" : alerte ? "alerte" : "non"}">${ok ? "✓" : alerte ? "!" : ""}</span>${l}</li>`).join("");
+  let bouton = "";
+  if (e.ok && !enCours) {
+    bouton = bd.publication
+      ? `<button class="btn" data-action="publier" data-slug="${s}">↻ Republier</button>`
+      : `<button class="btn primaire grand" data-action="publier" data-slug="${s}">🚀 ${e.statut === "publish_failed" ? "Réessayer la publication" : "Publier dans English Fluency"}</button>`;
+  }
+  const gauche = `
+    <div class="carte"><h3>Vérifications</h3><ul class="checklist">${items}</ul></div>
+    ${bd.publication ? `<div class="encart ok">Publié le ${new Date(pub.publishedAt).toLocaleString("fr-FR")} — version à jour.</div>` : ""}
+    ${e.statut === "publish_failed" && pub.lastError ? `<div class="encart erreur">${echapper(pub.lastError)}</div>` : ""}
+    ${enCours ? `<div class="encart info">⏳ ${echapper(imp.message || "Publication en cours…")}</div>` : ""}
+    ${!e.ok && !enCours && e.raisons.length ? `<div class="encart attention"><b>Encore à faire</b><ul>${e.raisons.map((r) => `<li>${echapper(r)}</li>`).join("")}</ul></div>` : ""}
+    <div class="carte">
+      <label class="interrupteur" title="Publie dès que le dernier prérequis est validé">
+        <input type="checkbox" data-action="auto" data-slug="${s}" ${d.meta.autoPublish ? "checked" : ""}> Publication automatique</label>
+      ${bouton ? `<div class="actions" style="margin-top:14px">${bouton}</div>` : ""}
+    </div>`;
+  const payload = etat.payloads[cle(d.slug, e.revision)];
+  const droite = e.ok
+    ? (payload ? `<pre class="code">${echapper(payload)}</pre>` : `<div class="vide-carte">Chargement…</div>`)
+    : `<div class="vide-carte">L'aperçu des données envoyées apparaîtra quand le contenu sera prêt.</div>`;
+  return `<div class="deux-col"><div class="col gauche">${gauche}</div>
+    <div class="col"><div class="carte etiree"><div class="tete-carte"><h3>Données envoyées</h3><span class="compteur">POST /content · audio anglais uniquement</span></div>
+      <div class="contenu-defilant" data-defile="payload">${droite}</div></div></div></div>`;
+}
+
+function actionSuivante(d) {
+  const statut = statutAffiche({ slug: d.slug, etat: d.etat });
+  const s = echapper(d.slug);
+  const bouton = {
+    awaiting_translation: `<button class="btn primaire grand" data-action="prompt" data-slug="${s}" data-type="traduction">📋 Copier le prompt de traduction</button>`,
+    awaiting_pedagogy: `<button class="btn primaire grand" data-action="prompt" data-slug="${s}" data-type="pedagogie">📋 Copier le prompt d'analyse</button>`,
+    awaiting_tts: `<button class="btn primaire grand" data-action="tts" data-slug="${s}">🔊 Générer l'audio anglais</button>`,
+    ready_to_publish: `<button class="btn primaire grand" data-action="publier" data-slug="${s}">🚀 Publier</button>`,
+    publish_failed: `<button class="btn primaire grand" data-action="publier" data-slug="${s}">↻ Réessayer la publication</button>`,
+    generating_tts: `<button class="btn grand" disabled>⏳ Audio anglais en cours…</button>`,
+    publishing: `<button class="btn grand" disabled>⏳ Publication en cours…</button>`,
+    published: `<span class="pill vert" style="font-size:13px;padding:4px 12px">Publié et à jour</span>`,
+  }[statut];
+  return bouton ? `<div class="action-suivante"><span class="legende">Prochaine action</span>${bouton}</div>` : "";
+}
+
+// Les lecteurs <audio> sont conservés entre deux rendus : un
+// rafraîchissement ne coupe jamais la lecture en cours.
+const audios = new Map();
+function monterAudios(conteneur) {
+  conteneur.querySelectorAll("[data-audio]").forEach((place) => {
+    const cleAudio = place.dataset.audio;
+    const [slug, quel, version] = cleAudio.split("|");
+    let el = audios.get(cleAudio);
+    if (!el) {
+      el = document.createElement("audio");
+      el.controls = true;
+      el.preload = "metadata";
+      el.src = `/api/audio?slug=${encodeURIComponent(slug)}&quel=${quel}&v=${encodeURIComponent(version)}`;
+      audios.set(cleAudio, el);
+    }
+    place.replaceWith(el);
+  });
+}
+
+function saisieEnCours(conteneur) {
+  const a = document.activeElement;
+  return a && conteneur.contains(a) && ["TEXTAREA", "SELECT", "INPUT"].includes(a.tagName) && a.type !== "checkbox";
+}
+
+function ongletAffiche(d) {
+  if (d.slug in etat.onglet) return etat.onglet[d.slug];
+  const b = { segments: d.segments.length, etat: d.etat };
+  const i = etapesFaites(b).indexOf(false);
+  return i === -1 ? 4 : i;
+}
+
+const cache = {};
+function rendreTravail() {
+  const zone = $("travail");
+  if (!etat.selection) {
+    const html = rendreAccueil();
+    if (cache.accueil !== html || zone.dataset.slug) { zone.innerHTML = html; zone.dataset.slug = ""; cache.accueil = html; }
+    return;
+  }
+  const d = etat.detail;
+  if (!d || d.slug !== etat.selection) return;
+  if (zone.dataset.slug !== d.slug) {
+    zone.innerHTML = `<div class="entete-travail"><div class="ligne-titre" id="ligne-titre"></div><div class="stepper" id="stepper"></div></div>
+      <div class="panneau" id="panneau"></div>`;
+    zone.dataset.slug = d.slug;
+    for (const k in cache) delete cache[k];
+  }
+  const e = d.etat;
+  const titre = `<div class="bloc-titre"><h1>${echapper(d.titre)}</h1>
+      <div class="meta-ligne">${pill(statutAffiche({ slug: d.slug, etat: e }))}<span class="tag">${sens(e.sourceLanguage)}</span>
+        ${d.meta.targetLevel ? `<span class="tag">${echapper(d.meta.targetLevel)}</span>` : ""}
+        ${d.meta.topic ? `<span class="tag">${echapper(d.meta.topic)}</span>` : ""}
+        ${d.meta.sourceUrl ? `<a href="${echapper(d.meta.sourceUrl)}" target="_blank" rel="noopener">Vidéo YouTube ↗</a>` : ""}
+        ${d.meta.autoPublish ? `<span>· publication automatique</span>` : ""}</div></div>
+    ${actionSuivante(d)}`;
+  if (cache.titre !== titre) { $("ligne-titre").innerHTML = titre; cache.titre = titre; }
+
+  const b = { segments: d.segments.length, etat: e };
+  const faites = etapesFaites(b);
+  const active = faites.indexOf(false);
+  const vue = ongletAffiche(d);
+  const sous = resumes(d);
+  const alertes = [false, false, e.pedagogieObsolete, e.audioEnObsolete, false];
+  const stepper = NOMS_ETAPES.map((nom, i) => `<button class="onglet-etape ${faites[i] ? "faite" : alertes[i] ? "alerte" : i === active ? "active" : ""} ${i === vue ? "vue" : ""}" data-action="onglet" data-index="${i}">
+      <span class="num">${faites[i] ? "✓" : alertes[i] ? "!" : i + 1}</span>
+      <span class="textes"><div class="nom">${nom}</div><div class="sous">${echapper(sous[i])}</div></span></button>`).join("");
+  if (cache.stepper !== stepper) { $("stepper").innerHTML = stepper; cache.stepper = stepper; }
+
+  if (vue === 4 && e.ok && !etat.payloads[cle(d.slug, e.revision)]) chargerPayload(d.slug, e.revision);
+  const panneau = $("panneau");
+  const html = panneauEtape(d, vue);
+  if (cache.panneau !== html && !saisieEnCours(panneau)) {
+    const defilement = {};
+    panneau.querySelectorAll("[data-defile]").forEach((el) => { defilement[el.dataset.defile] = el.scrollTop; });
+    const memeVue = cache.vue === vue;
+    panneau.innerHTML = html;
+    if (memeVue) panneau.querySelectorAll("[data-defile]").forEach((el) => { el.scrollTop = defilement[el.dataset.defile] || 0; });
+    monterAudios(panneau);
+    cache.panneau = html;
+    cache.vue = vue;
+  }
+}
+
+async function chargerPayload(slug, revision) {
+  const k = cle(slug, revision);
+  etat.payloads[k] = "…";
+  const r = await api("/api/payload", { slug });
+  etat.payloads[k] = r.ok ? JSON.stringify(r.payload, null, 2) : "❌ " + r.erreur;
+  rendreTravail();
+}
+
+/* ================= données ================= */
+let signatureListe = "";
+async function rafraichir() {
+  try {
+    const [jr, br] = await Promise.all([api("/api/jobs"), api("/api/bundles")]);
+    etat.jobs = jr.jobs || []; etat.imports = jr.imports || {}; etat.tts = jr.tts || {};
+    etat.bundles = br.bundles || [];
+    const sig = JSON.stringify([etat.jobs, etat.bundles, etat.tts, etat.filtre, etat.recherche, etat.selection]);
+    if (sig !== signatureListe) { rendreFiltres(); rendreListe(); signatureListe = sig; }
+    if (etat.selection) {
+      if (!etat.bundles.some((b) => b.slug === etat.selection)) { choisir(null); return; }
+      const d = await fetch(`/api/bundle?slug=${encodeURIComponent(etat.selection)}`).then((r) => r.json());
+      if (d && d.slug === etat.selection) etat.detail = d;
+    }
+    rendreTravail();
+  } catch (e) { /* serveur momentanément injoignable */ }
+}
+
+function choisir(slug) {
+  if (slug === etat.selection) return;
+  etat.selection = slug;
+  etat.detail = null;
+  history.replaceState(null, "", slug ? "#" + encodeURIComponent(slug) : location.pathname);
+  signatureListe = "";
+  rafraichir();
+}
+
+function afficherOnglet(i) {
+  if (!etat.detail) return;
+  etat.onglet[etat.detail.slug] = i;
+  rendreTravail();
+}
+
+/* ================= actions ================= */
+async function copierPrompt(slug, type) {
+  const r = await api("/api/prompt", { slug, type });
+  if (!r.ok) { toast(r.erreur, "erreur"); return; }
+  etat.prompts[cle(slug, type)] = r.prompt;
+  etat.onglet[slug] = type === "traduction" ? 1 : 2;
+  try {
+    await navigator.clipboard.writeText(r.prompt);
+    toast("Prompt copié — collez-le dans ChatGPT", "ok");
+  } catch (e) {
+    toast("Copie automatique impossible : ouvrez « Voir le prompt » pour le copier");
+  }
+  rendreTravail();
+}
+
+async function coller(slug, type) {
+  const k = cle(slug, type);
+  const texte = etat.brouillons[k] || "";
+  if (!texte.trim()) { toast("Collez d'abord la réponse de ChatGPT.", "erreur"); return; }
+  const r = await api("/api/coller", { slug, type, texte });
+  if (!r.ok) {
+    etat.retours[k] = { erreurs: [r.erreur, ...(r.erreurs || [])] };
+  } else {
+    const s = r.resume;
+    etat.retours[k] = { resume: type === "traduction"
+      ? (s.complete ? "Traduction complète." : `${s.segmentsTraduits} segments enregistrés — copiez le prompt de la section suivante.`)
+      : (s.complete ? `Analyse complète : ${s.chunks} chunks, ${s.grammarPoints} points de grammaire.`
+                    : `Section ${s.lot}/${s.lots} analysée — copiez le prompt de la section suivante.`) };
+    etat.brouillons[k] = "";
+    delete etat.prompts[k];
+    if (s.complete) delete etat.onglet[slug];   // passe à l'étape suivante
+    toast(etat.retours[k].resume, "ok");
+    if (r.autoPublication) toast("Publication automatique lancée 🚀", "ok");
+  }
+  document.activeElement?.blur();
+  await rafraichir();
+}
+
+async function lancerTts(slug) {
+  const voix = $("voix-" + slug)?.value || etat.detail?.meta.ttsVoice || "bf_emma";
+  const r = await api("/api/tts", { slug, voix });
+  if (!r.ok) toast(r.erreur, "erreur");
+  else { toast("Génération de l'audio anglais lancée"); etat.onglet[slug] = 3; }
+  rafraichir();
+}
+
+document.addEventListener("click", async (ev) => {
+  const cible = ev.target.closest("[data-action]");
+  if (!cible || cible.tagName === "INPUT") return;
+  const { action, slug, type } = cible.dataset;
+  if (action === "choisir") choisir(slug);
+  else if (action === "onglet") afficherOnglet(Number(cible.dataset.index));
+  else if (action === "filtre") { etat.filtre = cible.dataset.filtre; memoire.ecrire("filtre", etat.filtre); signatureListe = ""; rafraichir(); }
+  else if (action === "ouvrir-ajout") ouvrirAjout();
+  else if (action === "fermer-ajout") $("dialogue-ajout").close();
+  else if (action === "ouvrir-idees") ouvrirIdees();
+  else if (action === "fermer-idees") $("dialogue-idees").close();
+  else if (action === "ajouter-idee") ajouterIdee(cible.dataset.id, cible);
+  else if (action === "prompt") copierPrompt(slug, type);
+  else if (action === "coller") coller(slug, type);
+  else if (action === "tts") lancerTts(slug);
+  else if (action === "publier") {
+    const r = await api("/api/importer", { slug });
+    if (!r.ok) toast(r.erreur, "erreur");
+    else { toast("Publication lancée"); etat.onglet[slug] = 4; }
+    rafraichir();
+  } else if (action === "relancer") {
+    const r = await api("/api/jobs/relancer", { jobId: cible.dataset.job, langueAudio: cible.dataset.langue });
+    if (!r.ok) toast(r.erreur, "erreur");
+    rafraichir();
+  } else if (action === "masquer") {
+    await api("/api/jobs/masquer", { jobId: cible.dataset.job });
+    rafraichir();
+  }
+});
+
+document.addEventListener("change", async (ev) => {
+  const c = ev.target;
+  if (c.dataset.action === "auto") {
+    const r = await api("/api/autopublish", { slug: c.dataset.slug, actif: c.checked });
+    if (!r.ok) toast(r.erreur, "erreur");
+    else toast(c.checked ? "Publication automatique activée" : "Publication automatique désactivée");
+    c.blur();
+    rafraichir();
+  }
+});
+
+document.addEventListener("input", (ev) => {
+  const k = ev.target.dataset.brouillon;
+  if (k) etat.brouillons[k] = ev.target.value;
+});
+
+/* ---------- clavier ---------- */
+document.addEventListener("keydown", (ev) => {
+  const cible = ev.target;
+  const dansChamp = ["INPUT", "TEXTAREA", "SELECT"].includes(cible.tagName);
+  if ((ev.metaKey || ev.ctrlKey) && ev.key === "Enter") {
+    if (cible.dataset.brouillon) { ev.preventDefault(); coller(cible.dataset.slug, cible.dataset.type); }
+    else if (cible.id === "liens") { ev.preventDefault(); $("form-ajout").requestSubmit(); }
+    return;
+  }
+  if (ev.key === "Escape" && cible.id === "recherche") { cible.value = ""; etat.recherche = ""; rendreListe(); cible.blur(); return; }
+  if (dansChamp || ev.metaKey || ev.ctrlKey || ev.altKey || $("dialogue-ajout").open || $("dialogue-idees").open) return;
+  if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+    ev.preventDefault();
+    if (!etat.ordre.length) return;
+    const i = etat.ordre.indexOf(etat.selection);
+    const suivant = ev.key === "ArrowDown" ? Math.min(i + 1, etat.ordre.length - 1) : Math.max(i - 1, 0);
+    choisir(etat.ordre[i === -1 ? 0 : suivant]);
+  } else if (/^[1-5]$/.test(ev.key)) {
+    afficherOnglet(Number(ev.key) - 1);
+  } else if (ev.key === "n" || ev.key === "N") {
+    ev.preventDefault(); ouvrirAjout();
+  } else if (ev.key === "i" || ev.key === "I") {
+    ev.preventDefault(); ouvrirIdees();
+  } else if (ev.key === "/") {
+    ev.preventDefault(); $("recherche").focus();
+  }
+});
+
+$("recherche").addEventListener("input", (ev) => { etat.recherche = ev.target.value; rendreListe(); });
+
+/* ---------- idées de contenus ---------- */
+// Thèmes rapides : requête selon la langue + thème de l'atelier associé
+const THEMES_IDEES = [
+  ["IA", "artificial intelligence explained", "intelligence artificielle expliquée", "Tech"],
+  ["Tech", "technology explained", "technologie expliquée", "Tech"],
+  ["Économie", "economics explained", "économie expliquée", ""],
+  ["Science", "science explained", "science vulgarisation", ""],
+  ["Espace", "space exploration", "exploration spatiale", ""],
+  ["Business", "business strategy case study", "stratégie entreprise étude de cas", "Travail"],
+  ["Santé", "health science research", "santé recherche scientifique", ""],
+  ["Culture", "history and culture documentary", "histoire et culture documentaire", "Culture"],
+];
+const idees = {
+  q: "", langue: memoire.lire("idees.langue") || "en", duree: memoire.lire("idees.duree") || "moyenne",
+  theme: null, resultats: null, chargement: false, erreur: null, cache: false, ajouts: {},
+};
+
+const dureeLisible = (s) => {
+  if (s == null) return "";
+  const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), sec = String(s % 60).padStart(2, "0");
+  return h ? `${h}:${String(m).padStart(2, "0")}:${sec}` : `${m}:${sec}`;
+};
+const vuesLisibles = (n) => n == null ? "" : n >= 1e6 ? `${(n / 1e6).toFixed(1).replace(".0", "")} M vues`
+  : n >= 1e3 ? `${Math.round(n / 1e3)} k vues` : `${n} vues`;
+
+function rendreFiltresIdees() {
+  $("themes-idees").innerHTML = THEMES_IDEES.map(([l], i) =>
+    `<button type="button" class="theme-rapide ${idees.theme === i ? "actif" : ""}" data-theme="${i}">${l}</button>`).join("");
+  for (const [id, valeur] of [["langue-idees", idees.langue], ["duree-idees", idees.duree]])
+    $(id).querySelectorAll("button").forEach((b) => b.classList.toggle("actif", b.dataset.valeur === valeur));
+}
+
+function carteIdee(r) {
+  const presence = idees.ajouts[r.id] || r.presence;
+  const action = presence === "bibliotheque" ? `<span class="pill vert">Dans la bibliothèque</span>`
+    : presence === "preparation" ? `<span class="pill bleu">En préparation</span>`
+    : `<button class="btn petit primaire" data-action="ajouter-idee" data-id="${echapper(r.id)}">＋ Ajouter à l'atelier</button>`;
+  const autreLangue = r.langue && r.langue !== idees.langue;
+  return `<div class="idee">
+    <a class="vignette" href="${echapper(r.url)}" target="_blank" rel="noopener" title="Aperçu sur YouTube">
+      ${r.miniature ? `<img src="${echapper(r.miniature)}" alt="" loading="lazy">` : ""}
+      ${r.duree != null ? `<span class="duree">${dureeLisible(r.duree)}</span>` : ""}</a>
+    <div class="corps">
+      <div class="titre" title="${echapper(r.titre)}">${echapper(r.titre)}</div>
+      <div class="source">${echapper(r.chaine)}${r.date ? ` · ${dateCourte(r.date)} ${new Date(r.date).getFullYear()}` : ""}${r.vues != null ? ` · ${vuesLisibles(r.vues)}` : ""}</div>
+      <div class="pied"><span class="tag" title="${autreLangue ? "Langue audio différente du filtre" : "Langue audio déclarée par la chaîne"}">${r.langue ? r.langue.toUpperCase() : "langue ?"}${autreLangue ? " ⚠︎" : ""}</span>${action}</div>
+    </div></div>`;
+}
+
+function rendreResultatsIdees() {
+  const zone = $("resultats-idees");
+  if (idees.chargement) { zone.innerHTML = `<div class="vide-carte">Recherche en cours…</div>`; return; }
+  if (idees.erreur) { zone.innerHTML = `<div class="encart erreur">${echapper(idees.erreur)}</div>`; return; }
+  if (!idees.resultats) {
+    zone.innerHTML = `<div class="vide-carte">Choisissez un thème ou tapez un sujet.<br>Chaque recherche consomme du quota YouTube : les recherches identiques sont gardées une heure.</div>`;
+    return;
+  }
+  if (!idees.resultats.length) { zone.innerHTML = `<div class="vide-carte">Aucune vidéo trouvée avec ces filtres.</div>`; return; }
+  zone.innerHTML = `<div class="note-idees">${idees.resultats.length} vidéos pour « ${echapper(idees.q)} »${idees.cache ? " · résultat mémorisé (aucun quota consommé)" : ""}</div>
+    <div class="grille-idees">${idees.resultats.map(carteIdee).join("")}</div>`;
+}
+
+async function chercherIdees() {
+  idees.q = $("q-idees").value.trim();
+  if (!idees.q) { $("q-idees").focus(); return; }
+  idees.chargement = true; idees.erreur = null;
+  rendreResultatsIdees();
+  $("bouton-idees").disabled = true;
+  try {
+    const p = new URLSearchParams({ q: idees.q, langue: idees.langue, duree: idees.duree });
+    const r = await fetch("/api/idees?" + p).then((x) => x.json());
+    if (r.ok) { idees.resultats = r.resultats; idees.cache = r.cache; }
+    else { idees.erreur = r.erreur || "Recherche impossible."; }
+  } catch (e) {
+    idees.erreur = "Atelier injoignable.";
+  }
+  idees.chargement = false;
+  $("bouton-idees").disabled = false;
+  rendreResultatsIdees();
+}
+
+async function ajouterIdee(id, bouton) {
+  const r = (idees.resultats || []).find((x) => x.id === id);
+  if (!r) return;
+  bouton.disabled = true;
+  const theme = idees.theme != null ? THEMES_IDEES[idees.theme][3] : "";
+  const rep = await api("/api/atelier", { liens: r.url, langueAudio: idees.langue, niveau: "B1", theme });
+  if (!rep.ok) { bouton.disabled = false; toast(rep.erreur, "erreur"); return; }
+  idees.ajouts[id] = "preparation";
+  const cree = (rep.jobs || []).length > 0;
+  toast(cree ? `Ajoutée à l'atelier : ${r.titre}` : "Déjà en cours ou déjà présente dans l'atelier.", cree ? "ok" : "");
+  rendreResultatsIdees();
+  rafraichir();
+}
+
+function ouvrirIdees() {
+  rendreFiltresIdees(); rendreResultatsIdees();
+  $("dialogue-idees").showModal();
+  $("q-idees").focus();
+}
+$("form-idees").addEventListener("submit", (ev) => { ev.preventDefault(); idees.theme = null; rendreFiltresIdees(); chercherIdees(); });
+$("themes-idees").addEventListener("click", (ev) => {
+  const b = ev.target.closest("[data-theme]");
+  if (!b) return;
+  idees.theme = Number(b.dataset.theme);
+  $("q-idees").value = THEMES_IDEES[idees.theme][idees.langue === "fr" ? 2 : 1];
+  rendreFiltresIdees(); chercherIdees();
+});
+for (const [id, champ] of [["langue-idees", "langue"], ["duree-idees", "duree"]]) {
+  $(id).addEventListener("click", (ev) => {
+    const b = ev.target.closest("button[data-valeur]");
+    if (!b || idees[champ] === b.dataset.valeur) return;
+    idees[champ] = b.dataset.valeur;
+    memoire.ecrire("idees." + champ, idees[champ]);
+    if (champ === "langue" && idees.theme != null) $("q-idees").value = THEMES_IDEES[idees.theme][idees.langue === "fr" ? 2 : 1];
+    rendreFiltresIdees();
+    if ($("q-idees").value.trim()) chercherIdees();
+  });
+}
+
+/* ---------- dialogue d'ajout ---------- */
+function ouvrirAjout() { $("dialogue-ajout").showModal(); $("liens").focus(); }
+$("choix-langue").addEventListener("click", (ev) => {
+  const b = ev.target.closest("button[data-langue]");
+  if (!b) return;
+  etat.langue = b.dataset.langue;
+  $("choix-langue").querySelectorAll("button").forEach((x) => x.classList.toggle("actif", x === b));
+});
+$("auto-publier").checked = memoire.lire("autoPublish") === "1";
+$("auto-publier").addEventListener("change", () => memoire.ecrire("autoPublish", $("auto-publier").checked ? "1" : "0"));
+
+$("form-ajout").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  if (!$("liens").value.trim()) { toast("Collez au moins un lien YouTube.", "erreur"); return; }
+  $("bouton-preparer").disabled = true;
+  const r = await api("/api/atelier", {
+    liens: $("liens").value, langueAudio: etat.langue, niveau: $("niveau").value,
+    theme: $("theme").value, autoPublish: $("auto-publier").checked,
+  });
+  $("bouton-preparer").disabled = false;
+  if (!r.ok) { toast(r.erreur, "erreur"); return; }
+  const n = (r.jobs || []).length;
+  toast(n ? `${n} vidéo${n > 1 ? "s" : ""} en préparation` : "Aucune nouvelle vidéo", n ? "ok" : "");
+  if (r.ignores) toast(`${r.ignores} lien(s) ignoré(s) : déjà en cours ou déjà présent(s).`);
+  $("liens").value = "";
+  $("dialogue-ajout").close();
+  rafraichir();
+});
+
+addEventListener("hashchange", () => {
+  const slug = decodeURIComponent(location.hash.slice(1)) || null;
+  if (slug !== etat.selection) choisir(slug);
+});
+
+setInterval(rafraichir, 2000);
+rafraichir();
+</script>
+</body>
+</html>

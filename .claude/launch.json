@@ -1,0 +1,16 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "atelier",
+      "runtimeExecutable": "/usr/bin/env",
+      "runtimeArgs": [
+        "CONVERTISSEUR_SANS_NAVIGATEUR=1",
+        "CONVERTISSEUR_PORT=8765",
+        "/usr/local/bin/python3",
+        "convertisseur_web.py"
+      ],
+      "port": 8765
+    }
+  ]
+}
