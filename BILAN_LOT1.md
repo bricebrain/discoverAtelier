@@ -9,7 +9,10 @@
   - Worker : `wrangler rollback 1bd5c192-e123-4895-b55b-dd9419944691` ;
   - D1, avant la migration : `wrangler d1 time-travel restore englishfluency --bookmark=0000021b-00000000-00005106-ee2a5e1da818d8dd8be8e0a6113c411c`.
 - **Migration 0015 :** appliquée seule (`d1 execute --file`). Elle a créé 4 références `active`, une par audio de l'atelier publié. Elle n'est pas inscrite dans `d1_migrations` ; elle est idempotente, donc un futur `migrations apply` la rejouera sans effet.
-- ⚠️ **Migration 0014 (`fix_glued_translations`) toujours en attente en production**, antérieure au LOT 1 : « demanderà », « douze, »… sont encore là. Je ne l'ai pas appliquée : elle modifie le lexique et n'était pas dans l'accord. Le prochain `wrangler d1 migrations apply --remote` l'appliquera.
+- **Migration 0014 (`fix_glued_translations`)** : appliquée ensuite avec ton accord, via `wrangler d1 migrations apply --remote`, qui a aussi inscrit 0015 (rejouée sans effet : toujours 4 références). Signet de restauration pris avant : `00000220-00000000-00005106-947d6fb4c0c0d54023da6f6f100c4080`. Vérifié :
+  - « demander (à) », « dire (à) », « douze », « rendre », « nourrir, donner à manger à » ;
+  - cartes Lingvist resynchronisées (`ask_0036` → « demander (à) ») ;
+  - plus aucune traduction collée : les 5 correspondances restantes sont légitimes (« déjà », « là »).
 - **Vérifié en production :**
   - santé 200 ; lectures et proxy toujours 401 sans secret ;
   - liste complète inchangée (segments présents) ;
