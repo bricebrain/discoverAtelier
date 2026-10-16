@@ -2,7 +2,17 @@
 
 **Date :** 16 octobre 2026
 **Plan suivi :** `PLAN_LOT1.md` (validé avec les choix recommandés).
-**Worker déployé le 16/10/2026** (avec ton accord) : version `58b464c4` (`feat/lot1`, commit `190ebcc`, plus `src/srs.ts` et `src/learning.ts` non commités, déjà en production auparavant). **PWA non poussée, atelier non publié.** Le reste est commité en local sur les branches `feat/lot1`.
+**Worker déployé le 16/10/2026** (avec ton accord) : version `58b464c4` (`feat/lot1`, commit `190ebcc`, plus `src/srs.ts` et `src/learning.ts` non commités, déjà en production auparavant). **PWA déployée le 17/10/2026. Atelier non republié.** Le reste est commité en local sur les branches `feat/lot1`.
+
+### Déploiement de la PWA (17/10/2026)
+- Avec ton accord, `feat/lot1` a été poussée sur GitHub et `main` avancé (avance rapide `e3674c9..198f274`). Vercel déploie depuis `main`.
+- Production : **https://englishpwa-sigma.vercel.app**. Le bundle servi (`index-Dpf0PeOO.js`) est identique au build local du LOT 1.
+- Vérifié sur la page Scripts, en mobile :
+  - liste en vue résumée : 3 Ko pour `default` et 13 Ko pour `__global__`, compressés ;
+  - détail chargé seulement à l'ouverture de « Bilingue » (16 Ko) ;
+  - badges « Vidéo » et « Kokoro — voix de synthèse » ;
+  - lecture audio fonctionnelle.
+- Pas encore de surlignage : les contenus en production n'ont pas encore de timings (il faut les republier depuis l'atelier, § 4).
 
 ### Déploiement du Worker
 - **Retour arrière :**
