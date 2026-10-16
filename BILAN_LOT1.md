@@ -2,7 +2,21 @@
 
 **Date :** 16 octobre 2026
 **Plan suivi :** `PLAN_LOT1.md` (validé avec les choix recommandés).
-**Rien n'est déployé ni poussé.** Tout est commité en local sur les branches `feat/lot1` des trois dépôts.
+**Worker déployé le 16/10/2026** (avec ton accord) : version `58b464c4` (`feat/lot1`, commit `190ebcc`, plus `src/srs.ts` et `src/learning.ts` non commités, déjà en production auparavant). **PWA non poussée, atelier non publié.** Le reste est commité en local sur les branches `feat/lot1`.
+
+### Déploiement du Worker
+- **Retour arrière :**
+  - Worker : `wrangler rollback 1bd5c192-e123-4895-b55b-dd9419944691` ;
+  - D1, avant la migration : `wrangler d1 time-travel restore englishfluency --bookmark=0000021b-00000000-00005106-ee2a5e1da818d8dd8be8e0a6113c411c`.
+- **Migration 0015 :** appliquée seule (`d1 execute --file`). Elle a créé 4 références `active`, une par audio de l'atelier publié. Elle n'est pas inscrite dans `d1_migrations` ; elle est idempotente, donc un futur `migrations apply` la rejouera sans effet.
+- ⚠️ **Migration 0014 (`fix_glued_translations`) toujours en attente en production**, antérieure au LOT 1 : « demanderà », « douze, »… sont encore là. Je ne l'ai pas appliquée : elle modifie le lexique et n'était pas dans l'accord. Le prochain `wrangler d1 migrations apply --remote` l'appliquera.
+- **Vérifié en production :**
+  - santé 200 ; lectures et proxy toujours 401 sans secret ;
+  - liste complète inchangée (segments présents) ;
+  - **liste résumée du profil : 9,9 Ko au lieu de 258 Ko**. Pour `__global__`, le gain est nul (51 Ko contre 50 Ko : corps JSON structurés, déjà courts) ;
+  - `GET /content/:id` identique à la liste complète ; 404 et 401 corrects ;
+  - audio : Range `0-1` et suffixe → 206, plage invalide → 416, `HEAD` sans corps, 200 sans Range ; ancienne clé fixe servie en `max-age=3600, must-revalidate` ;
+  - `retire` : 409 sur la clé active, 403 sur la clé d'un autre contenu.
 
 ## 1. Résultat
 
