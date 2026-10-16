@@ -218,6 +218,11 @@
     width: 100%; padding: 8px 10px; border-radius: 9px; border: 1px solid var(--bord);
     background: var(--surface-2); outline: none;
   }
+  .champ input[type=text], .champ input[type=url], .champ input[type=date] {
+    width: 100%; box-sizing: border-box; border: 1px solid var(--bord); border-radius: 9px; padding: 8px 10px;
+    background: var(--surface-2); outline: none; }
+  .champ input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-doux); background: var(--surface); }
+  .aide-champ { font-size: 12px; color: var(--sourd); margin-top: 5px; }
   textarea:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-doux); background: var(--surface); }
   textarea.json { min-height: 150px; font: 12px/1.5 ui-monospace, Menlo, monospace; resize: vertical; }
   select.compact { width: auto; min-width: 220px; }
@@ -370,6 +375,7 @@
   <span class="espaceur"></span>
   <span class="stats" id="stats"></span>
   <button class="btn" data-action="ouvrir-idees">💡 Idées <kbd>I</kbd></button>
+  <button class="btn" data-action="ouvrir-texte">＋ Ajouter un texte</button>
   <button class="btn primaire" data-action="ouvrir-ajout">＋ Ajouter des vidéos <kbd>N</kbd></button>
 </header>
 
@@ -429,6 +435,75 @@
       <span class="astuce"><kbd>⌘</kbd> <kbd>↵</kbd> pour lancer</span>
       <button type="button" class="btn" data-action="fermer-ajout">Annuler</button>
       <button type="submit" class="btn primaire" id="bouton-preparer">Préparer les contenus</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dialogue-texte">
+  <form id="form-texte">
+    <div class="dialogue-tete">
+      <h2>Ajouter un texte</h2>
+      <p>Article, texte, transcription ou production personnelle : lisible sans audio, Kokoro reste facultatif.</p>
+    </div>
+    <div class="dialogue-corps">
+      <div class="champ">
+        <label for="texte-titre">Titre</label>
+        <input type="text" id="texte-titre" maxlength="200" placeholder="Titre du contenu">
+      </div>
+      <div class="champ">
+        <label for="texte-contenu">Texte — collez-le ou choisissez un fichier .txt / .md</label>
+        <textarea id="texte-contenu" rows="8" placeholder="Collez le texte ici…"></textarea>
+        <div class="aide-champ"><input type="file" id="texte-fichier" accept=".txt,.md,.markdown,text/plain,text/markdown">
+          <span id="texte-apercu"></span></div>
+      </div>
+      <div class="rangee-champs">
+        <div class="champ">
+          <label for="texte-type">Type</label>
+          <select id="texte-type">
+            <option value="article">Article</option>
+            <option value="transcript">Transcription</option>
+            <option value="personal_output">Production personnelle</option>
+            <option value="other" selected>Autre texte</option>
+          </select>
+        </div>
+        <div class="champ">
+          <label>Langue du texte</label>
+          <div class="segment" id="texte-langue">
+            <button type="button" data-langue="fr">Français</button>
+            <button type="button" data-langue="en">Anglais</button>
+          </div>
+          <div class="aide-champ" id="texte-langue-aide">À confirmer.</div>
+        </div>
+      </div>
+      <div id="texte-provenance">
+        <div class="champ">
+          <label for="texte-url">Lien de l'article (provenance, facultatif)</label>
+          <input type="url" id="texte-url" placeholder="https://…">
+          <div class="aide-champ">Le texte n'est pas téléchargé : collez-le ci-dessus. Le lien n'est conservé que comme source.</div>
+        </div>
+        <div class="rangee-champs">
+          <div class="champ"><label for="texte-auteur">Auteur</label><input type="text" id="texte-auteur"></div>
+          <div class="champ"><label for="texte-date">Date</label><input type="date" id="texte-date"></div>
+        </div>
+      </div>
+      <div class="rangee-champs">
+        <div class="champ">
+          <label for="texte-niveau">Niveau cible</label>
+          <select id="texte-niveau"><option>A2</option><option selected>B1</option><option>B2</option></select>
+        </div>
+        <div class="champ">
+          <label for="texte-theme">Thème</label>
+          <select id="texte-theme">
+            <option value="" selected>Aucun</option>
+            <option>Travail</option><option>Quotidien</option><option>Culture</option>
+            <option>Tech</option><option>Voyage</option><option>Autre</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="dialogue-pied">
+      <button type="button" class="btn" data-action="fermer-texte">Annuler</button>
+      <button type="submit" class="btn primaire" id="bouton-texte">Importer le texte</button>
     </div>
   </form>
 </dialog>
@@ -648,7 +723,9 @@ function blocFlux(d, type, sectionLibelle) {
     ? `<div class="encart erreur"><b>${echapper(retour.erreurs[0])}</b>${retour.erreurs.length > 1
         ? `<ul>${retour.erreurs.slice(1).map((e) => `<li>${echapper(e)}</li>`).join("")}</ul>` : ""}</div>`
     : `<div class="encart ok">✓ ${echapper(retour.resume)}</div>`;
-  const exemple = type === "traduction" ? '{"segments": [{"id": "s001", "text": "…"}]}' : '{"chunks": [ … ], "grammarPoints": [ … ]}';
+  const exemple = type === "traduction" ? '{"segments": [{"id": "s001", "text": "…"}]}'
+    : type === "correction" ? '{"segments": [{"id": "s001", "text": "…", "notes": [ … ]}]}'
+    : '{"chunks": [ … ], "grammarPoints": [ … ]}';
   return `<div class="flux">
     <div class="flux-etape"><span class="n">1</span><div>
       <p><b>Copiez le prompt</b>${sectionLibelle ? ` — ${echapper(sectionLibelle)}` : ""}</p>
@@ -678,6 +755,7 @@ function lecteur(slug, quel, legende, version) {
 }
 
 // ---- Horodatage (LOT 1) : badge, action « Horodater », ▶ par segment ----
+const TYPES_TEXTE = { article: "Article", transcript: "Transcription", personal_output: "Production personnelle", other: "Texte" };
 const LIBELLES_HORO = { macwhisper_srt: "SRT MacWhisper", kokoro: "Kokoro" };
 function badgeHorodatage(d) {
   const h = d.horodatage || {};
@@ -763,7 +841,7 @@ function resumes(d) {
     d.segments.length ? `${d.segments.length} segments` : "Transcription",
     bd.texteEn && bd.texteFr ? "EN et FR complets" : `${d.traduction.faits} / ${d.traduction.total} segments`,
     bd.pedagogie ? `${p.chunks.length} chunks · ${p.grammarPoints.length} grammaire` : e.pedagogieObsolete ? "À refaire" : "À faire",
-    bd.audioEn ? (e.sourceLanguage === "fr" ? "Kokoro, à jour" : "Audio original") : e.audioEnObsolete ? "Obsolète" : "À générer",
+    bd.audioEn ? (e.sourceLanguage === "fr" || e.sourceTexte ? "Kokoro, à jour" : "Audio original") : e.audioEnObsolete ? "Obsolète" : e.sourceTexte ? "Facultatif" : "À générer",
     bd.publication ? `Publié le ${dateCourte(pub.publishedAt)}` : e.ok ? "Prêt" : "En attente",
   ];
 }
@@ -777,24 +855,42 @@ function panneauEtape(d, i) {
     const p = d.meta.processing || {};
     return `<div class="deux-col">
       <div class="col gauche">
-        <div class="carte"><h3>Vidéo source</h3>
+        <div class="carte"><h3>${e.sourceTexte ? "Texte source" : "Vidéo source"}</h3>
           <dl class="infos-liste">
             <dt>Langue</dt><dd>${src === "fr" ? "Français" : src === "en" ? "Anglais" : "Inconnue"}</dd>
+            ${e.sourceTexte ? `<dt>Type</dt><dd>${echapper(TYPES_TEXTE[d.meta.contentType] || d.meta.contentType || "Texte")}</dd>
+            ${(d.meta.provenance || {}).author ? `<dt>Auteur</dt><dd>${echapper(d.meta.provenance.author)}</dd>` : ""}
+            ${(d.meta.provenance || {}).publishedAt ? `<dt>Date</dt><dd>${echapper(d.meta.provenance.publishedAt)}</dd>` : ""}
+            ${(d.meta.provenance || {}).fileName ? `<dt>Fichier</dt><dd>${echapper(d.meta.provenance.fileName)}</dd>` : ""}` : ""}
             <dt>Transcription</dt><dd>${echapper(p.transcriptionProvider || "—")}</dd>
             <dt>Horodatage</dt><dd>${badgeHorodatage(d)}</dd>
             <dt>Niveau cible</dt><dd>${echapper(d.meta.targetLevel || "—")}</dd>
             <dt>Thème</dt><dd>${echapper(d.meta.topic || "—")}</dd>
             <dt>Ajoutée le</dt><dd>${d.meta.createdAt ? new Date(d.meta.createdAt).toLocaleString("fr-FR") : "—"}</dd>
-            <dt>Lien</dt><dd>${d.meta.sourceUrl ? `<a href="${echapper(d.meta.sourceUrl)}" target="_blank" rel="noopener">${echapper(d.meta.sourceUrl)}</a>` : "—"}</dd>
+            <dt>Lien</dt><dd>${/^https?:\/\//.test(d.meta.sourceUrl || "") ? `<a href="${echapper(d.meta.sourceUrl)}" target="_blank" rel="noopener">${echapper(d.meta.sourceUrl)}</a>` : "—"}</dd>
           </dl>
           ${blocHorodatage(d)}</div>
         ${d.audio.original ? `<div class="carte">${lecteur(d.slug, "original",
           src === "fr" ? "Audio original <b>français</b> — conservé, jamais publié" : "Audio original <b>anglais</b> — c'est lui qui sera publié")}</div>` : ""}
       </div>
       <div class="col">
-        <div class="carte etiree"><div class="tete-carte"><h3>Transcription ${src ? src.toUpperCase() : ""}</h3><span class="compteur">${d.segments.length} segments</span></div>
+        <div class="carte etiree"><div class="tete-carte"><h3>${e.sourceTexte ? "Texte" : "Transcription"} ${src ? src.toUpperCase() : ""}</h3><span class="compteur">${d.segments.length} segments</span></div>
           <div class="contenu-defilant" data-defile="transcript">${d.transcript ? `<div class="texte-long">${echapper(d.transcript)}</div>` : `<div class="vide-carte">Pas de transcription.</div>`}</div></div>
       </div></div>`;
+  }
+
+  if (i === 1 && d.correction?.requise && !d.correction.complete) {
+    const c = d.correction;
+    const section = c.lotsTotal > 1 ? `section ${Math.floor(c.faits / 40) + 1} sur ${c.lotsTotal}` : "";
+    const lignes = d.segments.map((x) => `<tr><td class="id">${echapper(x.id)}</td><td>${echapper(x.en || "")}</td></tr>`).join("");
+    return `<div class="deux-col"><div class="col gauche">
+      <div class="carte"><h3>Correction de la production personnelle</h3>
+        <p style="margin:0 0 10px;color:var(--sourd);font-size:13px">Le texte brut est conservé tel quel. La version corrigée (sans reformulation) devient le texte anglais de référence ; la traduction se fera ensuite.</p>
+        <div style="display:flex;justify-content:space-between;font-size:12.5px;color:var(--sourd);margin-bottom:6px"><span>Progression</span><span>${c.faits} / ${c.total} segments</span></div>
+        <div class="barre"><div style="width:${c.total ? Math.round(c.faits / c.total * 100) : 0}%"></div></div></div>
+      <div class="carte">${blocFlux(d, "correction", section)}</div></div>
+      <div class="col"><div class="carte etiree"><div class="tete-carte"><h3>Texte brut</h3></div>
+        <div class="contenu-defilant" data-defile="bilingue"><table class="bilingue"><colgroup><col class="id"><col></colgroup><tbody>${lignes}</tbody></table></div></div></div></div>`;
   }
 
   if (i === 1) {
@@ -853,7 +949,7 @@ function panneauEtape(d, i) {
     const tts = etat.tts[d.slug];
     const enCours = tts && tts.statut === "en cours";
     let gauche;
-    if (src === "en") {
+    if (src === "en" && !e.sourceTexte) {
       gauche = `<div class="carte"><h3>Audio anglais</h3>${d.audio.original
         ? `<div class="encart ok">L'audio original est déjà en anglais : il sera publié tel quel, sans synthèse.</div>`
         : `<div class="encart erreur">Audio original manquant.</div>`}</div>`;
@@ -865,10 +961,11 @@ function panneauEtape(d, i) {
         ["af_heart", "Heart — américaine ♀"], ["af_bella", "Bella — américaine ♀"]]
         .map(([v, l]) => `<option value="${v}" ${(d.meta.ttsVoice || "bf_emma") === v ? "selected" : ""}>${l}</option>`).join("");
       gauche = `
+        ${e.sourceTexte ? `<div class="encart info">Audio facultatif : sans audio, le contenu est publié en lecture seule (écoute active indisponible).</div>` : ""}
         ${e.audioEnObsolete ? `<div class="encart attention">Le texte anglais a changé depuis la dernière génération : régénérez l'audio.</div>` : ""}
         ${tts && tts.statut === "echec" ? `<div class="encart erreur">${echapper(tts.message)}</div>` : ""}
         <div class="carte"><h3>Synthèse Kokoro</h3>
-          <p style="margin:0 0 14px;color:var(--sourd);font-size:13px">Kokoro lit le texte anglais validé et crée un second fichier : l'audio français reste intact.</p>
+          <p style="margin:0 0 14px;color:var(--sourd);font-size:13px">${e.sourceTexte ? "Kokoro lit le texte anglais validé, segment par segment." : "Kokoro lit le texte anglais validé et crée un second fichier : l'audio français reste intact."}</p>
           <div class="champ"><label for="voix-${s}">Voix</label>
             <select class="compact" id="voix-${s}" ${enCours ? "disabled" : ""}>${voix}</select></div>
           <div class="actions" style="margin-top:14px">
@@ -880,11 +977,11 @@ function panneauEtape(d, i) {
     }
     const lecteurs = `<div class="carte">
       ${d.audio.original ? lecteur(d.slug, "original", `Original ${src === "fr" ? "<b>français</b> <span class='tag'>non publié</span>" : "<b>anglais</b> <span class='tag'>publié</span>"}`) : ""}
-      ${src === "fr" ? (d.audio.en && !enCours
+      ${src === "fr" || e.sourceTexte ? (d.audio.en && !enCours
         ? lecteur(d.slug, "en", `Anglais <b>Kokoro</b>${d.meta.ttsVoice ? ` · ${echapper(d.meta.ttsVoice)}` : ""} <span class="tag">publié</span>`, d.audio.version)
         : `<div class="lecteur"><div class="legende">Anglais <b>Kokoro</b></div><div class="vide-carte" style="padding:14px">${enCours ? "Génération en cours…" : "Pas encore généré."}</div></div>`) : ""}
     </div>`;
-    const texteEn = src === "fr" ? `<div class="carte etiree"><div class="tete-carte"><h3>Texte lu par Kokoro</h3></div>
+    const texteEn = src === "fr" || e.sourceTexte ? `<div class="carte etiree"><div class="tete-carte"><h3>Texte lu par Kokoro</h3></div>
       <div class="contenu-defilant" data-defile="texte-en"><div class="texte-long">${echapper(d.segments.map((x) => x.en || "").join("\n"))}</div></div></div>` : "";
     return `<div class="deux-col"><div class="col gauche">${gauche}</div><div class="col">${lecteurs}${texteEn}</div></div>`;
   }
@@ -993,7 +1090,7 @@ function rendreTravail() {
       <div class="meta-ligne">${pill(statutAffiche({ slug: d.slug, etat: e }))}<span class="tag">${sens(e.sourceLanguage)}</span>
         ${d.meta.targetLevel ? `<span class="tag">${echapper(d.meta.targetLevel)}</span>` : ""}
         ${d.meta.topic ? `<span class="tag">${echapper(d.meta.topic)}</span>` : ""}
-        ${d.meta.sourceUrl ? `<a href="${echapper(d.meta.sourceUrl)}" target="_blank" rel="noopener">Vidéo YouTube ↗</a>` : ""}
+        ${/^https?:\/\//.test(d.meta.sourceUrl || "") ? `<a href="${echapper(d.meta.sourceUrl)}" target="_blank" rel="noopener">${d.etat.sourceTexte ? "Source ↗" : "Vidéo YouTube ↗"}</a>` : ""}
         ${d.meta.autoPublish ? `<span>· publication automatique</span>` : ""}</div></div>
     ${actionSuivante(d)}`;
   if (cache.titre !== titre) { $("ligne-titre").innerHTML = titre; cache.titre = titre; }
@@ -1090,13 +1187,15 @@ async function coller(slug, type) {
     etat.retours[k] = { erreurs: [r.erreur, ...(r.erreurs || [])] };
   } else {
     const s = r.resume;
-    etat.retours[k] = { resume: type === "traduction"
+    etat.retours[k] = { resume: type === "correction"
+      ? (s.complete ? "Correction complète : passez à la traduction." : `${s.segmentsCorriges} segments corrigés — copiez le prompt de la section suivante.`)
+      : type === "traduction"
       ? (s.complete ? "Traduction complète." : `${s.segmentsTraduits} segments enregistrés — copiez le prompt de la section suivante.`)
       : (s.complete ? `Analyse complète : ${s.chunks} chunks, ${s.grammarPoints} points de grammaire.`
                     : `Section ${s.lot}/${s.lots} analysée — copiez le prompt de la section suivante.`) };
     etat.brouillons[k] = "";
     delete etat.prompts[k];
-    if (s.complete) delete etat.onglet[slug];   // passe à l'étape suivante
+    if (s.complete && type !== "correction") delete etat.onglet[slug];   // passe à l'étape suivante
     toast(etat.retours[k].resume, "ok");
     if (r.autoPublication) toast("Publication automatique lancée 🚀", "ok");
   }
@@ -1121,6 +1220,8 @@ document.addEventListener("click", async (ev) => {
   else if (action === "filtre") { etat.filtre = cible.dataset.filtre; memoire.ecrire("filtre", etat.filtre); signatureListe = ""; rafraichir(); }
   else if (action === "ouvrir-ajout") ouvrirAjout();
   else if (action === "fermer-ajout") $("dialogue-ajout").close();
+  else if (action === "ouvrir-texte") ouvrirTexte();
+  else if (action === "fermer-texte") $("dialogue-texte").close();
   else if (action === "ouvrir-idees") ouvrirIdees();
   else if (action === "fermer-idees") $("dialogue-idees").close();
   else if (action === "ajouter-idee") ajouterIdee(cible.dataset.id, cible);
@@ -1170,7 +1271,7 @@ document.addEventListener("keydown", (ev) => {
     return;
   }
   if (ev.key === "Escape" && cible.id === "recherche") { cible.value = ""; etat.recherche = ""; rendreListe(); cible.blur(); return; }
-  if (dansChamp || ev.metaKey || ev.ctrlKey || ev.altKey || $("dialogue-ajout").open || $("dialogue-idees").open) return;
+  if (dansChamp || ev.metaKey || ev.ctrlKey || ev.altKey || $("dialogue-ajout").open || $("dialogue-texte").open || $("dialogue-idees").open) return;
   if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
     ev.preventDefault();
     if (!etat.ordre.length) return;
@@ -1312,6 +1413,67 @@ for (const [id, champ] of [["langue-idees", "langue"], ["duree-idees", "duree"]]
 
 /* ---------- dialogue d'ajout ---------- */
 function ouvrirAjout() { $("dialogue-ajout").showModal(); $("liens").focus(); }
+
+// ---- Import texte (LOT 1) -------------------------------------------------
+const importTexte = { langue: null, nomFichier: null, minuterie: 0 };
+function ouvrirTexte() { $("dialogue-texte").showModal(); $("texte-titre").focus(); majProvenance(); }
+function choisirLangueTexte(langue, proposee) {
+  importTexte.langue = langue;
+  $("texte-langue").querySelectorAll("button").forEach((x) => x.classList.toggle("actif", x.dataset.langue === langue));
+  $("texte-langue-aide").textContent = proposee ? `Proposée : ${langue === "fr" ? "français" : "anglais"} — à confirmer.` : langue ? "Confirmée." : "À confirmer.";
+}
+function majProvenance() { $("texte-provenance").style.display = $("texte-type").value === "article" ? "" : "none"; }
+async function apercuTexte() {
+  const texte = $("texte-contenu").value;
+  if (!texte.trim()) { $("texte-apercu").textContent = ""; return; }
+  const r = await api("/api/texte/apercu", { texte, nomFichier: importTexte.nomFichier });
+  if (!r.ok) { $("texte-apercu").textContent = r.erreur; return; }
+  const a = r.apercu;
+  $("texte-apercu").textContent = ` ${a.caracteres.toLocaleString("fr-FR")} caractères · ${a.paragraphes} paragraphe${a.paragraphes > 1 ? "s" : ""} · ${a.mots.toLocaleString("fr-FR")} mots`;
+  if (!importTexte.langueConfirmee && r.langueProposee) choisirLangueTexte(r.langueProposee, true);
+}
+$("texte-contenu").addEventListener("input", () => {
+  importTexte.nomFichier = null;
+  clearTimeout(importTexte.minuterie);
+  importTexte.minuterie = setTimeout(apercuTexte, 400);
+});
+$("texte-fichier").addEventListener("change", async () => {
+  const fichier = $("texte-fichier").files[0];
+  if (!fichier) return;
+  $("texte-contenu").value = await fichier.text();
+  importTexte.nomFichier = fichier.name;
+  if (!$("texte-titre").value.trim()) $("texte-titre").value = fichier.name.replace(/\.(txt|md|markdown)$/i, "");
+  apercuTexte();
+});
+$("texte-langue").addEventListener("click", (ev) => {
+  const b = ev.target.closest("button[data-langue]");
+  if (!b) return;
+  importTexte.langueConfirmee = true;
+  choisirLangueTexte(b.dataset.langue, false);
+});
+$("texte-type").addEventListener("change", majProvenance);
+$("form-texte").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  if (!importTexte.langue) { toast("Confirmez la langue du texte.", "erreur"); return; }
+  $("bouton-texte").disabled = true;
+  const article = $("texte-type").value === "article";
+  const r = await api("/api/texte/importer", {
+    titre: $("texte-titre").value, texte: $("texte-contenu").value, langue: importTexte.langue,
+    type: $("texte-type").value, nomFichier: importTexte.nomFichier,
+    url: article ? $("texte-url").value : null, auteur: article ? $("texte-auteur").value : null,
+    date: article ? $("texte-date").value : null, niveau: $("texte-niveau").value, theme: $("texte-theme").value,
+  });
+  $("bouton-texte").disabled = false;
+  if (!r.ok) { toast(r.erreur, "erreur"); return; }
+  toast("Texte importé");
+  $("form-texte").reset();
+  Object.assign(importTexte, { langue: null, langueConfirmee: false, nomFichier: null });
+  choisirLangueTexte(null, false);
+  $("texte-apercu").textContent = "";
+  $("dialogue-texte").close();
+  await rafraichir();
+  choisir(r.slug);
+});
 $("choix-langue").addEventListener("click", (ev) => {
   const b = ev.target.closest("button[data-langue]");
   if (!b) return;

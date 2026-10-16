@@ -170,7 +170,7 @@ def decrire_fichiers(slug):
     meta."""
     description = {"audio": None, "audioEn": None, "transcript": None,
                    "langueTranscript": None, "transcriptSrt": None,
-                   "timingsEn": None, "adapted": None,
+                   "timingsEn": None, "source": None, "adapted": None,
                    "niveauAdapted": None, "translation": None,
                    "langueTranslation": None, "segments": None,
                    "pedagogy": None, "meta": None}
@@ -196,6 +196,9 @@ def decrire_fichiers(slug):
                 description["transcript"] = nom
                 description["langueTranscript"] = m.group(1)
                 continue
+            if re.match(rf"^{re.escape(slug)}\.source\.(\w+)\.(txt|md)$", nom):
+                description["source"] = nom
+                continue
             if re.match(rf"^{re.escape(slug)}\.transcript\.(\w+)\.srt$", nom):
                 description["transcriptSrt"] = nom
                 continue
@@ -220,7 +223,8 @@ def rafraichir_meta(slug):
     description = decrire_fichiers(slug)
     cles = {"audio": "audio", "audioEn": "audioEn",
             "transcript": "transcript", "transcriptSrt": "transcriptSrt",
-            "timingsEn": "timingsEn", "adapted": "adaptedText",
+            "timingsEn": "timingsEn", "source": "sourceText",
+            "adapted": "adaptedText",
             "translation": "translation", "segments": "segments",
             "pedagogy": "pedagogy"}
     meta["availableFiles"] = {cle_meta: description[cle]

@@ -37,6 +37,7 @@ except ImportError:
     sys.exit(1)
 
 import transcription  # sous-titres YouTube + MacWhisper (même dossier)
+import import_texte   # textes collés, .txt / .md, articles, productions personnelles
 import bundles        # fichiers des bundles + connexion Worker (même dossier)
 import idees          # idées de contenus : recherche YouTube via le Worker
 import pipeline       # logique métier bilingue : prompts, validation, canPublish
@@ -442,7 +443,7 @@ def instantane_tts():
 def lancer_tts(slug, voix):
     """Lance la génération d'audio anglais dans un thread."""
     meta = bundles.lire_meta(slug)
-    if pipeline.langue_source(meta) != "fr":
+    if pipeline.langue_source(meta) != "fr" and not pipeline.est_source_texte(meta):
         return False, ("source anglaise : l'audio original est publié, "
                        "aucun TTS n'est nécessaire")
     segments = pipeline.lire_segments(slug)
@@ -621,6 +622,17 @@ def etat_atelier():
     return resultat
 
 
+def _resume_correction(slug, meta, segments):
+    """État de la correction d'une production personnelle anglaise."""
+    if not pipeline.correction_requise(meta):
+        return {"requise": False}
+    correction = pipeline.lire_correction(slug, partielle=True) or {"segments": []}
+    return {"requise": True, "complete": bool(correction.get("complete")),
+            "faits": len(correction["segments"]), "total": len(segments),
+            "lotsTotal": len(pipeline.lots(segments, pipeline.TAILLE_LOT_TRADUCTION)),
+            "segments": correction["segments"]}
+
+
 def detail_bundle(slug):
     """Tout ce qu'il faut pour l'écran de détail d'un bundle."""
     bundle = bundles.trouver_bundle(slug)
@@ -647,7 +659,9 @@ def detail_bundle(slug):
         "meta": {cle: meta.get(cle) for cle in (
             "sourceUrl", "targetLevel", "topic", "createdAt", "processing",
             "autoPublish", "ttsVoice", "tts", "publication",
-            "englishTextRevision")},
+            "englishTextRevision", "sourceType", "contentType",
+            "provenance")},
+        "correction": _resume_correction(slug, meta, segments),
         "transcript": transcript,
         "segments": segments,
         "traduction": {
@@ -818,6 +832,24 @@ class Gestionnaire(BaseHTTPRequestHandler):
                 self._envoyer(200, {"ok": True})
             else:
                 self._envoyer(400, {"erreur": "job introuvable ou non échoué"})
+        elif self.path == "/api/texte/apercu":
+            try:
+                self._envoyer(200, {"ok": True, **import_texte.preparer(
+                    str(donnees.get("texte", "")), donnees.get("nomFichier") or None)})
+            except ValueError as e:
+                self._envoyer(400, {"erreur": str(e)})
+        elif self.path == "/api/texte/importer":
+            nouveau, erreur = import_texte.creer_bundle(
+                titre=str(donnees.get("titre", "")), texte=str(donnees.get("texte", "")),
+                langue=str(donnees.get("langue", "")),
+                type_contenu=str(donnees.get("type", "other")),
+                url=donnees.get("url"), auteur=donnees.get("auteur"),
+                date=donnees.get("date"), nom_fichier=donnees.get("nomFichier") or None,
+                niveau=str(donnees.get("niveau", "B1")), theme=str(donnees.get("theme", "")).strip() or None)
+            if erreur:
+                self._envoyer(400, {"erreur": erreur})
+            else:
+                self._envoyer(200, {"ok": True, "slug": nouveau})
         elif not bundles.trouver_bundle(slug):
             self._envoyer(404, {"erreur": "bundle introuvable"})
         elif self.path == "/api/prompt":
@@ -894,6 +926,8 @@ class Gestionnaire(BaseHTTPRequestHandler):
     def _prompt(self, slug, type_prompt):
         if type_prompt == "traduction":
             prompt, info, erreur = pipeline.prompt_traduction(slug)
+        elif type_prompt == "correction":
+            prompt, info, erreur = pipeline.prompt_correction(slug)
         elif type_prompt in ("pedagogie", "chunks"):
             prompt, info, erreur = pipeline.prompt_pedagogie(slug)
         else:
@@ -909,6 +943,8 @@ class Gestionnaire(BaseHTTPRequestHandler):
             return
         if type_resultat == "traduction":
             resume, erreurs = pipeline.enregistrer_traduction(slug, texte)
+        elif type_resultat == "correction":
+            resume, erreurs = pipeline.enregistrer_correction(slug, texte)
         elif type_resultat in ("pedagogie", "chunks"):
             resume, erreurs = pipeline.enregistrer_pedagogie(slug, texte)
         else:
