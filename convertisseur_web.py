@@ -325,6 +325,7 @@ def traiter_job(job, signaler=lambda: None):
             job.niveau, job.theme, statut="prepared",
             auto_publier=job.auto_publier)
         meta["processing"] = {"transcriptionProvider": source}
+        meta["sourceRevision"] = pipeline.revision_source_bundle(job.slug, {})
         bundles.ecrire_meta(job.slug, meta)
         bundles.rafraichir_meta(job.slug)
         pipeline.initialiser_segments(job.slug)
@@ -459,30 +460,35 @@ def lancer_tts(slug, voix):
 
 def _executer_tts(slug, voix):
     base = os.path.join(bundles.DOSSIER_BUNDLES, slug)
-    entree, wav = base + ".tts-input.en.txt", base + ".tts.wav"
+    entree, wav = base + ".tts-input.en.json", base + ".tts.wav"
+    timings_temporaires = base + ".tts-timings.json"
     mp3_temporaire = base + ".audio-en.tmp.mp3"
     try:
         if not os.path.exists(CHEMIN_PYTHON_TTS):
             raise RuntimeError("venv-tts est absent (voir README, section TTS)")
-        # Kokoro lit exclusivement le texte anglais validé (segments)
-        texte_en = pipeline.texte_complet(pipeline.lire_segments(slug), "en")
+        # Kokoro lit exclusivement le texte anglais validé, segment par
+        # segment : l'audio a ses propres timings (v1.2 § 6.1)
+        segments = pipeline.lire_segments(slug)
+        texte_en = pipeline.texte_complet(segments, "en")
         hash_en = pipeline.empreinte(texte_en)
         with open(entree, "w", encoding="utf-8") as f:
-            f.write(texte_en)
+            json.dump([{"id": s["id"], "en": s["en"]} for s in segments], f,
+                      ensure_ascii=False)
         ffmpeg = trouver_ffmpeg()
 
         pipeline.marquer_tts(slug, "generating")
         _maj_tts(slug, message="chargement du modèle Kokoro…")
         processus = subprocess.Popen(
             [CHEMIN_PYTHON_TTS, CHEMIN_SCRIPT_TTS, "--voix", voix,
-             "--sortie", wav, entree],
+             "--sortie", wav, "--segments", entree,
+             "--timings", timings_temporaires],
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         for ligne in processus.stdout:
             ligne = ligne.strip()
             if ligne.startswith("PROGRESSION "):
                 i, n = ligne.split()[1].split("/")
                 _maj_tts(slug, progression=round(int(i) / int(n) * 100),
-                         message=f"génération Kokoro… bloc {i}/{n}")
+                         message=f"génération Kokoro… segment {i}/{n}")
             elif ligne.startswith("OK "):
                 _maj_tts(slug, message=f"conversion MP3… ({ligne.split()[1]})")
             elif ligne.startswith("ERREUR"):
@@ -498,8 +504,16 @@ def _executer_tts(slug, voix):
         if conversion.returncode != 0 or not pipeline.audio_lisible(
                 mp3_temporaire):
             raise RuntimeError("conversion MP3 échouée")
+        with open(timings_temporaires, encoding="utf-8") as f:
+            timings = json.load(f)
+        if [t.get("id") for t in timings] != [s["id"] for s in segments]:
+            raise RuntimeError("timings Kokoro incohérents avec les segments")
         # Second fichier : l'audio original <slug>.mp3 n'est jamais touché
         os.replace(mp3_temporaire, base + ".audio-en.mp3")
+        pipeline.ecrire_json(base + ".audio-en.timings.json", {
+            "textHash": hash_en, "voice": voix,
+            "segmentationVersion": pipeline.lire_infos_segments(slug)["segmentationVersion"],
+            "timings": timings})
 
         pipeline.enregistrer_tts(slug, hash_en, voix)
         bundles.rafraichir_meta(slug)
@@ -510,9 +524,75 @@ def _executer_tts(slug, voix):
         pipeline.marquer_tts(slug, "failed", str(e))
         _maj_tts(slug, statut="echec", message=str(e))
     finally:
-        for temporaire in (entree, wav, mp3_temporaire):
+        for temporaire in (entree, wav, timings_temporaires, mp3_temporaire):
             if os.path.exists(temporaire):
                 os.remove(temporaire)
+
+
+# ---------------------------------------------------------------------------
+# Horodatage d'un ancien bundle anglais (SRT MacWhisper, v1.2 § 6.1)
+# ---------------------------------------------------------------------------
+HORODATAGES = {}  # slug -> {"statut": "en cours|ok|echec", "message"}
+VERRO_HORODATAGES = threading.Lock()
+
+
+def instantane_horodatages():
+    with VERRO_HORODATAGES:
+        return {slug: dict(etat) for slug, etat in HORODATAGES.items()}
+
+
+def lancer_horodatage(slug):
+    """Transcrit en SRT si besoin (MacWhisper, plusieurs minutes), puis
+    re-segmente. Renvoie (lance, erreur)."""
+    possible, raison = pipeline.horodatage_possible(slug)
+    if not possible:
+        return False, raison
+    with VERRO_HORODATAGES:
+        if HORODATAGES.get(slug, {}).get("statut") == "en cours":
+            return False, "un horodatage est déjà en cours pour ce bundle"
+        HORODATAGES[slug] = {"statut": "en cours", "message": "préparation…"}
+    threading.Thread(target=_executer_horodatage, args=(slug,), daemon=True).start()
+    return True, None
+
+
+def _executer_horodatage(slug):
+    def maj(**champs):
+        with VERRO_HORODATAGES:
+            HORODATAGES[slug].update(champs)
+    try:
+        base = os.path.join(bundles.DOSSIER_BUNDLES, slug)
+        if not os.path.exists(base + ".transcript.en.srt"):
+            maj(message="MacWhisper transcrit l'audio en SRT… (plusieurs minutes)")
+            # Le .txt existant est sauvegardé : MacWhisper le régénère
+            if os.path.exists(base + ".transcript.en.txt"):
+                shutil.copyfile(base + ".transcript.en.txt", base + ".transcript.en.v1.bak.txt")
+            chemin_txt, source = transcription.transcrire_macwhisper(
+                base + ".mp3", base + ".transcript.en", "en")
+            if not chemin_txt:
+                raise RuntimeError(f"transcription SRT impossible : {source}")
+        maj(message="re-segmentation depuis le SRT…")
+        segments, erreur = pipeline.horodater(slug)
+        if erreur:
+            raise RuntimeError(erreur)
+        bundles.rafraichir_meta(slug)
+        maj(statut="ok", message=f"{len(segments)} segments horodatés : refaites la traduction puis l'analyse")
+    except Exception as e:
+        maj(statut="echec", message=str(e))
+
+
+def timings_audio_atelier(slug, etat, segments):
+    """Timings utilisables pour le ▶ par segment de l'atelier : ceux de
+    l'audio qui sera publié (SRT pour l'original anglais, Kokoro pour une
+    source française). Renvoie {"quel", "timings"} ou None."""
+    source = etat.get("sourceLanguage")
+    if source == "en" and pipeline.lire_infos_segments(slug)["timingSource"] == "macwhisper_srt":
+        timings = [{"id": s["id"], "startMs": s.get("startMs"), "endMs": s.get("endMs")} for s in segments]
+        return {"quel": "original", "timings": timings}
+    if source == "fr":
+        kokoro = pipeline.lire_timings_kokoro(slug, segments)
+        if kokoro:
+            return {"quel": "en", "timings": kokoro}
+    return None
 
 
 def etat_atelier():
@@ -556,6 +636,7 @@ def detail_bundle(slug):
     hash_en = (pipeline.empreinte(pipeline.texte_complet(segments, "en"))
                if pipeline.traduction_complete(segments) else None)
     fichiers = bundle["fichiers"]
+    horodatage_possible = pipeline.horodatage_possible(slug)
     transcript = ""
     if fichiers["transcript"]:
         with open(os.path.join(bundles.DOSSIER_BUNDLES, fichiers["transcript"]),
@@ -583,6 +664,11 @@ def detail_bundle(slug):
         "audio": {"original": bool(fichiers["audio"]),
                   "en": bool(fichiers["audioEn"]),
                   "version": (meta.get("tts") or {}).get("finishedAt")},
+        "horodatage": {**etat.get("horodatage", {}),
+                       "segmentationVersion": etat.get("segmentationVersion"),
+                       "possible": horodatage_possible[0],
+                       "avertissement": horodatage_possible[1],
+                       "audio": timings_audio_atelier(slug, etat, segments)},
     }
 
 
@@ -699,7 +785,8 @@ class Gestionnaire(BaseHTTPRequestHandler):
         elif url.path == "/api/jobs":
             self._envoyer(200, {"jobs": JOBS.instantane(),
                                 "imports": instantane_imports(),
-                                "tts": instantane_tts()})
+                                "tts": instantane_tts(),
+                                "horodatages": instantane_horodatages()})
         elif url.path == "/api/bundles":
             self._envoyer(200, {"bundles": etat_atelier()})
         elif url.path == "/api/idees":
@@ -758,6 +845,12 @@ class Gestionnaire(BaseHTTPRequestHandler):
             meta["autoPublish"] = bool(donnees.get("actif"))
             bundles.ecrire_meta(slug, meta)
             self._envoyer(200, {"ok": True})
+        elif self.path == "/api/horodater":
+            ok, erreur = lancer_horodatage(slug)
+            if not ok:
+                self._envoyer(409, {"erreur": erreur})
+            else:
+                self._envoyer(200, {"ok": True})
         elif self.path == "/api/tts":
             voix = str(donnees.get("voix", "bf_emma"))
             if voix not in VOIX_KOKORO:

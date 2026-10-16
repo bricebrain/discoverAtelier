@@ -18,6 +18,8 @@ import re
 import subprocess
 import threading
 
+import horodatage
+
 CHEMIN_MW = "/Applications/MacWhisper.app/Contents/MacOS/mw"
 LIBELLES_MODES = {
     "Auto (rapide)": "auto",          # sous-titres YouTube, sinon MacWhisper
@@ -208,18 +210,21 @@ def sous_titres_youtube(url, base_sans_extension):
 # MacWhisper (transcription locale)
 # ---------------------------------------------------------------------------
 def transcrire_macwhisper(chemin_audio, base_sans_extension, langue=None):
-    """Transcrit l'audio avec MacWhisper et écrit un .txt.
-    Renvoie (chemin_txt, source) ou (None, raison)."""
+    """Transcrit l'audio avec MacWhisper au format SRT (horodatage de
+    chaque réplique, v1.2 § 6.1). Écrit <base>.srt, conservé, et en dérive
+    <base>.txt pour l'ancien pipeline. Renvoie (chemin_txt, source) ou
+    (None, raison)."""
     mw = trouver_macwhisper()
     if not mw:
         return None, ("MacWhisper est introuvable — installez-le depuis "
                       "macwhisper.app si vous voulez la transcription locale")
+    chemin_srt = base_sans_extension + ".srt"
     chemin_txt = base_sans_extension + ".txt"
     commande = [
         mw, "transcribe",
         "--language", langue if langue else "auto",
-        "--format", "txt",
-        "--output", chemin_txt,
+        "--format", "srt",
+        "--output", chemin_srt,
         "--overwrite",
         chemin_audio,
     ]
@@ -230,11 +235,17 @@ def transcrire_macwhisper(chemin_audio, base_sans_extension, langue=None):
                                       timeout=7200)  # 2 h max pour les longs audio
     except subprocess.TimeoutExpired:
         return None, "transcription MacWhisper interrompue (trop longue)"
-    if resultat.returncode != 0 or not os.path.exists(chemin_txt):
+    if resultat.returncode != 0 or not os.path.exists(chemin_srt):
         detail = (resultat.stderr or resultat.stdout or "").strip()
         derniere = detail.splitlines()[-1] if detail else "échec MacWhisper"
         return None, derniere
-    return chemin_txt, "MacWhisper (transcription locale)"
+    with open(chemin_srt, encoding="utf-8") as f:
+        repliques = horodatage.lire_srt(f.read())
+    if not repliques:
+        return None, "MacWhisper a produit un SRT vide"
+    with open(chemin_txt, "w", encoding="utf-8") as f:
+        f.write(horodatage.srt_vers_texte(repliques) + "\n")
+    return chemin_txt, "MacWhisper (transcription locale, SRT)"
 
 
 # ---------------------------------------------------------------------------

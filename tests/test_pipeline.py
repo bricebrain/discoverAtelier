@@ -6,6 +6,7 @@ Lancement :  python3 -m unittest discover -s tests -v
 
 import json
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -139,7 +140,7 @@ class TestParcoursFrancais(BaseBundle):
         self.generer_tts("video-fr")
         payload, etat, erreur = pipeline.payload_distant("video-fr")
         self.assertIsNone(erreur)
-        self.assertEqual(payload["audioR2Key"], "prepared-content/video-fr-en.mp3")
+        self.assertRegex(payload["audioR2Key"], r"^prepared-content/video-fr-faithful-[0-9a-f]{8}\.mp3$")
         self.assertEqual(payload["metadata"]["audioLanguage"], "en")
         self.assertTrue(payload["metadata"]["textFr"].startswith("Bonjour"))
         self.assertTrue(payload["body"].startswith("EN s001"))
@@ -301,7 +302,7 @@ class TestPublication(BaseBundle):
         self.assertTrue(ok)
         appels = [c.args[0] for c in requete.call_args_list]
         self.assertIn("https://w/content", appels)
-        self.assertTrue(any("v-en.mp3" in a for a in appels))
+        self.assertTrue(any(re.search(r"v-faithful-[0-9a-f]{8}\.mp3.*contentId=v", a) for a in appels))
         envoye = requete.call_args_list[0].kwargs["donnees"]
         self.assertTrue(envoye.endswith(b"en"), "c'est l'audio EN qui est envoyé")
         self.assertEqual(pipeline.etat_publication("v")["statut"], "published")

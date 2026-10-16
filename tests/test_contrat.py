@@ -39,7 +39,8 @@ class TestContratPayload(BaseBundle):
         self.assertEqual(payload["type"], "podcast")              # type accepté par le Worker
         self.assertEqual(payload["metadata"]["audioLanguage"], "en")
         self.assertEqual(payload["metadata"]["audioOrigin"], "kokoro_tts")
-        self.assertEqual(payload["audioR2Key"], "prepared-content/v-en.mp3")
+        # LOT 1 : clé immuable prepared-content/<id>-faithful-<audioRevision>.mp3
+        self.assertRegex(payload["audioR2Key"], r"^prepared-content/v-faithful-[0-9a-f]{8}\.mp3$")
         self.assertRegex(payload["audioR2Key"], r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")  # règle de clé du Worker
         for segment in payload["metadata"]["segments"]:
             self.assertEqual(set(segment), {"id", "en", "fr", "startMs", "endMs"})
@@ -50,7 +51,7 @@ class TestContratPayload(BaseBundle):
         pipeline.enregistrer_pedagogie("e", self.pedagogie())
         payload, _etat, erreur = pipeline.payload_distant("e")
         self.assertIsNone(erreur)
-        self.assertEqual(payload["audioR2Key"], "prepared-content/e.mp3")
+        self.assertRegex(payload["audioR2Key"], r"^prepared-content/e-faithful-[0-9a-f]{8}\.mp3$")
         self.assertEqual(payload["metadata"]["audioOrigin"], "original")
         self.assertEqual(payload["metadata"]["transcriptLanguage"], "en")
 

@@ -7,9 +7,16 @@ validation des réponses collées, sélection de l'audio anglais publié et
 
 Le nommage à plat de fileToImport/ est conservé ; ce module y ajoute :
 
-    <slug>.segments.json   segments EN/FR appariés (s001, s002…)
+    <slug>.segments.json   segments EN/FR appariés (s001, s002…), avec
+                           segmentationVersion et timingSource
     <slug>.pedagogy.json   chunks + points de grammaire
     <slug>.audio-en.mp3    audio Kokoro (source FR uniquement)
+    <slug>.audio-en.timings.json  timings propres à l'audio Kokoro
+    <slug>.transcript.<l>.srt     SRT MacWhisper (timings de l'audio original)
+
+Versions (AUDIT_LOT0.md § 8) : sourceRevision, segmentationVersion,
+audioRevision, contentRevision, variantId ; l'audio est publié sous une clé
+R2 immuable prepared-content/<id>-faithful-<audioRevision>.mp3.
 
 L'audio original reste <slug>.mp3 et n'est jamais écrasé. Les anciens
 fichiers (transcript, translation, adapted) sont lus mais jamais
@@ -26,6 +33,7 @@ import tempfile
 import threading
 
 import bundles
+import horodatage
 
 VERROU = threading.RLock()
 
@@ -75,6 +83,67 @@ def lire_json(chemin_source):
 
 def empreinte(texte):
     return hashlib.sha256((texte or "").encode("utf-8")).hexdigest()[:16]
+
+
+def revision_source(contenu):
+    """sourceRevision : 16 hex du SHA-256 de la source brute (octets de
+    l'audio original, ou texte normalisé en UTF-8)."""
+    if isinstance(contenu, str):
+        contenu = contenu.replace("\r\n", "\n").strip().encode("utf-8")
+    return hashlib.sha256(contenu or b"").hexdigest()[:16]
+
+
+_CACHE_REVISION_AUDIO = {}
+
+
+def revision_audio(chemin_audio):
+    """audioRevision : 8 hex du SHA-256 des octets du fichier audio, ou
+    None s'il est illisible. Mis en cache par (taille, date de
+    modification) : etat_publication est appelé à chaque affichage."""
+    try:
+        infos = os.stat(chemin_audio)
+    except (OSError, TypeError):
+        return None
+    cle = (chemin_audio, infos.st_size, infos.st_mtime_ns)
+    if cle not in _CACHE_REVISION_AUDIO:
+        sha = hashlib.sha256()
+        with open(chemin_audio, "rb") as f:
+            for bloc in iter(lambda: f.read(1 << 20), b""):
+                sha.update(bloc)
+        _CACHE_REVISION_AUDIO[cle] = sha.hexdigest()[:8]
+    return _CACHE_REVISION_AUDIO[cle]
+
+
+def revision_source_bundle(slug, meta):
+    """sourceRevision du bundle : celle du meta (imports texte), sinon
+    l'empreinte de l'audio original <slug>.mp3."""
+    if (meta or {}).get("sourceRevision"):
+        return meta["sourceRevision"]
+    chemin_audio = chemin_bundle(f"{slug}.mp3")
+    try:
+        infos = os.stat(chemin_audio)
+    except OSError:
+        return None
+    cle = ("source", chemin_audio, infos.st_size, infos.st_mtime_ns)
+    if cle not in _CACHE_REVISION_AUDIO:
+        sha = hashlib.sha256()
+        with open(chemin_audio, "rb") as f:
+            for bloc in iter(lambda: f.read(1 << 20), b""):
+                sha.update(bloc)
+        _CACHE_REVISION_AUDIO[cle] = sha.hexdigest()[:16]
+    return _CACHE_REVISION_AUDIO[cle]
+
+
+VARIANTE_FIDELE = "faithful"
+
+
+def id_variante(content_id, kind=VARIANTE_FIDELE):
+    return f"{content_id}~{kind}"
+
+
+def cle_audio_r2(content_id, audio_revision, kind=VARIANTE_FIDELE):
+    """Clé R2 immuable : une nouvelle révision audio = une nouvelle clé."""
+    return f"prepared-content/{content_id}-{kind}-{audio_revision}.mp3"
 
 
 # ---------------------------------------------------------------------------
@@ -143,8 +212,19 @@ def lire_segments(slug):
     return donnees["segments"]
 
 
-def ecrire_segments(slug, segments):
-    ecrire_json(chemin(slug, "segments.json"), {"segments": segments})
+def lire_infos_segments(slug):
+    """segmentationVersion (1 par défaut, anciens bundles) et timingSource
+    (None : pas d'horodatage) de segments.json."""
+    donnees = lire_json(chemin(slug, "segments.json")) or {}
+    return {"segmentationVersion": donnees.get("segmentationVersion") or 1,
+            "timingSource": donnees.get("timingSource")}
+
+
+def ecrire_segments(slug, segments, **infos):
+    """Écrit segments.json en conservant segmentationVersion et
+    timingSource (sauf s'ils sont fournis)."""
+    donnees = {**lire_infos_segments(slug), **infos, "segments": segments}
+    ecrire_json(chemin(slug, "segments.json"), donnees)
 
 
 def _texte_transcript_source(slug, source):
@@ -167,6 +247,11 @@ def initialiser_segments(slug):
         source = langue_source(meta)
         if not source:
             return None, "langue source inconnue (fr/en) dans le meta"
+        segments = segments_depuis_srt(slug, source)
+        if segments:
+            ecrire_segments(slug, segments, segmentationVersion=1,
+                            timingSource=horodatage.TIMING_SRT)
+            return segments, None
         texte = _texte_transcript_source(slug, source)
         if not texte or not texte.strip():
             return None, f"transcription {source.upper()} manquante"
@@ -176,8 +261,67 @@ def initialiser_segments(slug):
                        "startMs": None, "endMs": None}
             segment[source] = morceau
             segments.append(segment)
-        ecrire_segments(slug, segments)
+        ecrire_segments(slug, segments, segmentationVersion=1, timingSource=None)
         return segments, None
+
+
+def segments_depuis_srt(slug, source):
+    """Segments horodatés depuis <slug>.transcript.en.srt (audio anglais
+    authentique). None si la source n'est pas anglaise ou sans SRT : les
+    timings d'un audio français ne sont jamais réutilisés (v1.2 § 6.1)."""
+    if source != "en":
+        return None
+    try:
+        with open(chemin(slug, "transcript.en.srt"), encoding="utf-8") as f:
+            repliques = horodatage.lire_srt(f.read())
+    except OSError:
+        return None
+    if not repliques:
+        return None
+    return [{"id": f"s{i:03d}", "en": g["text"], "fr": None,
+             "startMs": g["startMs"], "endMs": g["endMs"]}
+            for i, g in enumerate(horodatage.regrouper_repliques(repliques), 1)]
+
+
+def horodatage_possible(slug):
+    """L'action « Horodater » re-segmente un ancien bundle anglais depuis
+    son SRT. Renvoie (possible, avertissement ou raison)."""
+    meta = bundles.lire_meta(slug) or {}
+    if langue_source(meta) != "en":
+        return False, "seule une source anglaise (audio authentique) s'horodate par SRT"
+    if lire_infos_segments(slug)["timingSource"] == horodatage.TIMING_SRT:
+        return False, "déjà horodaté"
+    segments = lire_segments(slug) or []
+    deja_traduit = any((s.get("fr") or "").strip() for s in segments)
+    return True, ("La re-segmentation change les segments : la traduction et "
+                  "l'analyse pédagogique seront à refaire." if deja_traduit else None)
+
+
+def horodater(slug):
+    """Re-segmente un bundle anglais depuis son SRT (nouvelle
+    segmentationVersion). Les anciens segments et l'analyse sont
+    sauvegardés à côté (.v<n>.bak.json), jamais supprimés.
+    Renvoie (segments, erreur)."""
+    with VERROU:
+        possible, raison = horodatage_possible(slug)
+        if not possible:
+            return None, raison
+        meta = bundles.lire_meta(slug) or {}
+        nouveaux = segments_depuis_srt(slug, "en")
+        if not nouveaux:
+            return None, "SRT anglais manquant : transcrire d'abord avec MacWhisper (SRT)"
+        version = lire_infos_segments(slug)["segmentationVersion"]
+        for nom in ("segments.json", "pedagogy.json"):
+            if os.path.exists(chemin(slug, nom)):
+                base = nom.rsplit(".", 1)[0]
+                shutil.copyfile(chemin(slug, nom), chemin(slug, f"{base}.v{version}.bak.json"))
+        if os.path.exists(chemin(slug, "pedagogy.json")):
+            os.remove(chemin(slug, "pedagogy.json"))
+        ecrire_segments(slug, nouveaux, segmentationVersion=version + 1,
+                        timingSource=horodatage.TIMING_SRT)
+        _maj_meta(slug, translationValidated=False,
+                  englishTextRevision=meta.get("englishTextRevision", 0) + 1)
+        return nouveaux, None
 
 
 def texte_complet(segments, langue):
@@ -614,20 +758,83 @@ def marquer_tts(slug, statut, erreur=None):
 # ---------------------------------------------------------------------------
 # canPublish
 # ---------------------------------------------------------------------------
-def revision_contenu(segments, pedagogie, audio):
-    """Empreinte de tout ce qui est publié : sert à l'idempotence et à
-    savoir si la version publiée est à jour."""
+def revision_contenu(segments, pedagogie, audio, segmentation_version=1,
+                     timings=None):
+    """contentRevision : empreinte de tout ce qui est publié pour la
+    variante (textes EN/FR, pédagogie, segmentationVersion, audioRevision,
+    timings publiés). Sert à l'idempotence et à savoir si la version
+    publiée est à jour."""
     morceaux = [texte_complet(segments, "en"), texte_complet(segments, "fr"),
-                json.dumps(pedagogie or {}, sort_keys=True, ensure_ascii=False)]
-    try:
-        morceaux.append(f"{audio}:{os.path.getsize(chemin_bundle(audio))}")
-    except (OSError, TypeError):
-        morceaux.append("")
+                json.dumps(pedagogie or {}, sort_keys=True, ensure_ascii=False),
+                f"segmentation:{segmentation_version}",
+                f"audio:{revision_audio(chemin_bundle(audio)) if audio else ''}",
+                json.dumps(timings or [], sort_keys=True)]
     return empreinte("\x1e".join(morceaux))
 
 
+def lire_timings_kokoro(slug, segments):
+    """Timings de l'audio Kokoro s'ils correspondent au texte anglais
+    actuel (même empreinte, mêmes segments) ; sinon None : ils sont
+    obsolètes avec l'audio (v1.2 EA-03)."""
+    donnees = lire_json(chemin(slug, "audio-en.timings.json"))
+    if not donnees or not isinstance(donnees.get("timings"), list):
+        return None
+    if donnees.get("textHash") != empreinte(texte_complet(segments, "en")):
+        return None
+    if [t.get("id") for t in donnees["timings"]] != [s["id"] for s in segments]:
+        return None
+    return donnees["timings"]
+
+
+def timings_publication(slug, segments, source, duree_s=None):
+    """Timings publiés pour l'audio anglais : SRT pour une source anglaise,
+    Kokoro pour une source française ; contrôlés (v1.2 § 6.1).
+    Renvoie {"timings": [{startMs, endMs, wordsPerMinute}] | None,
+    "timingSource", "timingStatus", "raisons", "wordsPerMinute"}."""
+    infos = lire_infos_segments(slug)
+    timings, origine = None, None
+    if source == "en" and infos["timingSource"] == horodatage.TIMING_SRT:
+        timings = [{"startMs": s.get("startMs"), "endMs": s.get("endMs")} for s in segments]
+        origine = horodatage.TIMING_SRT
+    elif source == "fr":
+        kokoro = lire_timings_kokoro(slug, segments)
+        if kokoro:
+            timings = [{"startMs": t.get("startMs"), "endMs": t.get("endMs")} for t in kokoro]
+            origine = horodatage.TIMING_KOKORO
+    if not timings:
+        return {"timings": None, "timingSource": None, "timingStatus": "absent",
+                "raisons": [], "wordsPerMinute": None}
+    controle = [{"id": s["id"], **t} for s, t in zip(segments, timings)]
+    statut, raisons = horodatage.verifier_timings(
+        controle, duree_s * 1000 if duree_s else None)
+    if statut != "valid":
+        # Publiable quand même, mais sans timings : pas d'écoute active
+        return {"timings": None, "timingSource": origine, "timingStatus": statut,
+                "raisons": raisons, "wordsPerMinute": None}
+    for s, t in zip(segments, timings):
+        t["wordsPerMinute"] = horodatage.mots_par_minute(s.get("en"), t["startMs"], t["endMs"])
+    avec_en = [{**s, **t} for s, t in zip(segments, timings)]
+    return {"timings": timings, "timingSource": origine, "timingStatus": "valid",
+            "raisons": [], "wordsPerMinute": horodatage.debit_global(avec_en)}
+
+
+_CACHE_DUREES = {}
+
+
 def duree_audio_secondes(chemin_audio):
-    """Durée d'un MP3 lue par ffmpeg (« Duration: hh:mm:ss.cc »), ou None."""
+    """Durée d'un MP3 lue par ffmpeg (« Duration: hh:mm:ss.cc »), ou None.
+    Mise en cache par (taille, date de modification) du fichier."""
+    try:
+        infos = os.stat(chemin_audio)
+    except (OSError, TypeError):
+        return None
+    cle = (chemin_audio, infos.st_size, infos.st_mtime_ns)
+    if cle not in _CACHE_DUREES:
+        _CACHE_DUREES[cle] = _mesurer_duree(chemin_audio)
+    return _CACHE_DUREES[cle]
+
+
+def _mesurer_duree(chemin_audio):
     try:
         import imageio_ffmpeg
         ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
@@ -742,8 +949,18 @@ def etat_publication(slug, import_en_cours=False):
 
     etat["ok"] = not raisons
     publication = meta.get("publication") or {}
+    infos_segments = lire_infos_segments(slug)
+    etat["segmentationVersion"] = infos_segments["segmentationVersion"]
+    etat["horodatage"] = {"timingSource": None, "timingStatus": "absent", "raisons": []}
     if etat["ok"] or badges["texteEn"]:
-        etat["revision"] = revision_contenu(segments, pedagogie, audio)
+        audio_present = audio if audio and os.path.exists(chemin_bundle(audio)) else None
+        horo = timings_publication(slug, segments, source,
+                                   duree_audio_secondes(chemin_bundle(audio_present))
+                                   if audio_present and badges["audioEn"] else None)
+        etat["horodatage"] = {k: horo[k] for k in ("timingSource", "timingStatus", "raisons")}
+        etat["revision"] = revision_contenu(segments, pedagogie, audio_present,
+                                            infos_segments["segmentationVersion"],
+                                            horo["timings"])
     badges["publication"] = bool(
         publication.get("status") == "published"
         and publication.get("contentRevision") == etat["revision"])
@@ -782,9 +999,11 @@ def payload_distant(slug):
     segments = lire_segments(slug)
     pedagogie = lire_pedagogie(slug) or {}
     audio = etat["publishAudioFile"]
-    cle_r2 = (f"prepared-content/{meta['id']}-en.mp3"
-              if etat["sourceLanguage"] == "fr"
-              else f"prepared-content/{meta['id']}.mp3")
+    audio_revision = revision_audio(chemin_bundle(audio))
+    cle_r2 = cle_audio_r2(meta["id"], audio_revision)
+    duree = duree_audio_secondes(chemin_bundle(audio))
+    horo = timings_publication(slug, segments, etat["sourceLanguage"], duree)
+    timings = horo["timings"] or [{"startMs": None, "endMs": None}] * len(segments)
     texte_en = texte_complet(segments, "en")
     texte_fr = texte_complet(segments, "fr")
     payload = {
@@ -810,33 +1029,48 @@ def payload_distant(slug):
             "targetLocale": "en-GB",
             "audioOrigin": "kokoro_tts" if etat["sourceLanguage"] == "fr" else "original",
             "contentRevision": etat["revision"],
+            # Versions (AUDIT_LOT0.md § 8)
+            "variantId": id_variante(meta["id"]),
+            "variantKind": VARIANTE_FIDELE,
+            "sourceRevision": revision_source_bundle(slug, meta),
+            "segmentationVersion": etat["segmentationVersion"],
+            "audioRevision": audio_revision,
+            "timingSource": horo["timingSource"],
+            "timingStatus": horo["timingStatus"],
+            "wordsPerMinute": horo["wordsPerMinute"],
             "textEn": texte_en,
             "textFr": texte_fr,
-            "segments": [{"id": s["id"], "en": s["en"], "fr": s["fr"],
-                          "startMs": s.get("startMs"), "endMs": s.get("endMs")}
-                         for s in segments],
+            "segments": [_segment_publie(s, t) for s, t in zip(segments, timings)],
             "chunks": pedagogie.get("chunks", []),
             "grammarPoints": pedagogie.get("grammarPoints", []),
         },
     }
-    duree = duree_audio_secondes(chemin_bundle(audio))
     if duree:
         payload["metadata"]["durationSeconds"] = round(duree)
         payload["metadata"]["durationLabel"] = libelle_duree(duree)
     return payload, etat, None
 
 
-def marquer_publication(slug, ok, revision=None, erreur=None):
+def _segment_publie(segment, timing):
+    publie = {"id": segment["id"], "en": segment["en"], "fr": segment["fr"],
+              "startMs": timing.get("startMs"), "endMs": timing.get("endMs")}
+    if timing.get("wordsPerMinute") is not None:
+        publie["wordsPerMinute"] = timing["wordsPerMinute"]
+    return publie
+
+
+def marquer_publication(slug, ok, revision=None, erreur=None, cle_audio=None):
     meta = bundles.lire_meta(slug) or {}
     publication = dict(meta.get("publication") or {})
-    horodatage = bundles.maintenant()
+    instant = bundles.maintenant()
     if ok:
         publication.update({"status": "published", "remoteId": meta.get("id"),
                             "remoteVersion": revision, "contentRevision": revision,
-                            "publishedAt": horodatage, "lastError": None})
+                            "audioR2Key": cle_audio,
+                            "publishedAt": instant, "lastError": None})
     else:
         publication.update({"status": "failed", "lastError": erreur,
-                            "failedAt": horodatage,
+                            "failedAt": instant,
                             "failedRevision": revision})
     _maj_meta(slug, publication=publication)
 
@@ -872,9 +1106,12 @@ def publier(slug, signal=None):
         if signal:
             signal(f"Publication : upload audio EN "
                    f"({len(donnees_audio) / 1048576:.1f} Mo)…")
+        # Clé immuable + contentId : le Worker l'enregistre en `pending`
+        # puis l'active (et retire l'ancienne) au POST /content.
         bundles._requete_worker(
             f"{url}/content/audio?key="
-            + bundles.urllib.parse.quote(payload["audioR2Key"], safe=""),
+            + bundles.urllib.parse.quote(payload["audioR2Key"], safe="")
+            + "&contentId=" + bundles.urllib.parse.quote(payload["id"], safe=""),
             donnees=donnees_audio,
             entetes={"Authorization": autorisation,
                      "Content-Type": "audio/mpeg"},
@@ -892,7 +1129,8 @@ def publier(slug, signal=None):
                             erreur=str(e))
         return False, f"échec de publication : {e}"
 
-    marquer_publication(slug, True, revision=etat["revision"])
+    marquer_publication(slug, True, revision=etat["revision"],
+                        cle_audio=payload["audioR2Key"])
     origine = "Kokoro" if etat["sourceLanguage"] == "fr" else "original"
     return True, f"publié avec l'audio anglais ({origine})"
 
@@ -920,7 +1158,8 @@ def doit_auto_publier(slug, import_en_cours=False):
     return True, None
 
 
-FICHIERS_TEMPORAIRES = (".tts.wav", ".tts-input.en.txt", ".audio-en.tmp.mp3")
+FICHIERS_TEMPORAIRES = (".tts.wav", ".tts-input.en.txt", ".tts-input.en.json",
+                        ".tts-timings.json", ".audio-en.tmp.mp3")
 
 
 def reprendre_apres_redemarrage(slug):

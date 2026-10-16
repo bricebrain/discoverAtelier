@@ -169,7 +169,8 @@ def decrire_fichiers(slug):
     translation (+langue), adapted (ancien format), segments, pedagogy,
     meta."""
     description = {"audio": None, "audioEn": None, "transcript": None,
-                   "langueTranscript": None, "adapted": None,
+                   "langueTranscript": None, "transcriptSrt": None,
+                   "timingsEn": None, "adapted": None,
                    "niveauAdapted": None, "translation": None,
                    "langueTranslation": None, "segments": None,
                    "pedagogy": None, "meta": None}
@@ -187,11 +188,16 @@ def decrire_fichiers(slug):
             description["segments"] = nom
         elif nom == f"{slug}.pedagogy.json":
             description["pedagogy"] = nom
+        elif nom == f"{slug}.audio-en.timings.json":
+            description["timingsEn"] = nom
         else:
             m = re.match(rf"^{re.escape(slug)}\.transcript\.(\w+)\.txt$", nom)
             if m:
                 description["transcript"] = nom
                 description["langueTranscript"] = m.group(1)
+                continue
+            if re.match(rf"^{re.escape(slug)}\.transcript\.(\w+)\.srt$", nom):
+                description["transcriptSrt"] = nom
                 continue
             m = re.match(rf"^{re.escape(slug)}\.adapted\.en-(\w+)\.txt$", nom)
             if m:
@@ -213,7 +219,8 @@ def rafraichir_meta(slug):
         return None
     description = decrire_fichiers(slug)
     cles = {"audio": "audio", "audioEn": "audioEn",
-            "transcript": "transcript", "adapted": "adaptedText",
+            "transcript": "transcript", "transcriptSrt": "transcriptSrt",
+            "timingsEn": "timingsEn", "adapted": "adaptedText",
             "translation": "translation", "segments": "segments",
             "pedagogy": "pedagogy"}
     meta["availableFiles"] = {cle_meta: description[cle]

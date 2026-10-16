@@ -20,11 +20,18 @@ from test_pipeline import FAUX_MP3, TEXTE_FR, BaseBundle  # noqa: E402
 
 
 class FauxKokoro:
-    """Remplace le processus venv-tts : écrit le .wav demandé."""
+    """Remplace le processus venv-tts : écrit le .wav demandé et, en mode
+    segments, les timings (1 s par segment, comme tts_kokoro.py)."""
 
     def __init__(self, commande, **_options):
         with open(commande[commande.index("--sortie") + 1], "wb") as f:
             f.write(b"RIFF")
+        if "--segments" in commande:
+            with open(commande[commande.index("--segments") + 1], encoding="utf-8") as f:
+                segments = json.load(f)
+            with open(commande[commande.index("--timings") + 1], "w", encoding="utf-8") as f:
+                json.dump([{"id": s["id"], "startMs": i * 1350, "endMs": i * 1350 + 1000}
+                           for i, s in enumerate(segments)], f)
         self.stdout = iter(["PROGRESSION 1/1\n", "OK 2s sortie.wav\n"])
 
     def wait(self):
@@ -90,7 +97,7 @@ class TestAutoPublication(BaseServeur):
         audio_envoye = self.requete.call_args_list[0].kwargs["donnees"]
         self.assertTrue(audio_envoye.endswith(b"en"), "audio Kokoro envoyé")
         self.assertTrue(os.path.exists(os.path.join(self.dossier, "v.mp3")))
-        self.assertFalse(any(n.endswith((".wav", ".tmp.mp3", ".tts-input.en.txt"))
+        self.assertFalse(any(n.endswith((".wav", ".tmp.mp3", ".tts-input.en.txt", ".tts-input.en.json", ".tts-timings.json"))
                              for n in os.listdir(self.dossier)))
 
     def test_ac04_dernier_prerequis_valide_apres_le_tts(self):

@@ -249,6 +249,14 @@
   table.bilingue tr:hover td { background: var(--survol); }
   table.bilingue td.id { width: 54px; color: var(--discret); font: 11.5px ui-monospace, Menlo, monospace; padding-top: 12px; }
   table.bilingue td.vide { color: var(--discret); font-style: italic; }
+  .lire-seg { display: block; margin-top: 4px; border: 1px solid var(--bord); background: var(--surface-2); color: var(--sourd);
+    border-radius: 6px; font-size: 10.5px; padding: 1px 6px; cursor: pointer; }
+  .lire-seg:hover { color: var(--texte); }
+  .lire-seg.en-cours { color: #fff; background: var(--accent); border-color: transparent; }
+  .badge-horo { display: inline-block; border-radius: 999px; padding: 1px 8px; font-size: 12px; }
+  .badge-horo.oui { background: var(--ok-doux); color: var(--ok); }
+  .badge-horo.non { background: var(--surface-2); color: var(--sourd); }
+  .badge-horo.invalide { background: var(--attention-doux); color: var(--attention); }
 
   .grille-chunks { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; padding: 16px 18px; }
   .section-titre { font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--discret); font-weight: 650; padding: 16px 18px 0; }
@@ -669,6 +677,80 @@ function lecteur(slug, quel, legende, version) {
     <div data-audio="${echapper(slug)}|${quel}|${echapper(version || "")}"></div></div>`;
 }
 
+// ---- Horodatage (LOT 1) : badge, action « Horodater », ▶ par segment ----
+const LIBELLES_HORO = { macwhisper_srt: "SRT MacWhisper", kokoro: "Kokoro" };
+function badgeHorodatage(d) {
+  const h = d.horodatage || {};
+  if (h.timingStatus === "valid") return `<span class="badge-horo oui">Horodaté · ${LIBELLES_HORO[h.timingSource] || h.timingSource}</span>`;
+  if (h.timingStatus === "invalid") return `<span class="badge-horo invalide" title="${echapper((h.raisons || []).join(" ; "))}">Horodatage invalide</span>`;
+  return `<span class="badge-horo non">Sans horodatage</span>`;
+}
+function blocHorodatage(d) {
+  const h = d.horodatage || {}, enCours = etat.horodatages?.[d.slug];
+  const s = echapper(d.slug);
+  let html = "";
+  if (h.timingStatus === "invalid") {
+    html += `<div class="encart attention">Timings incohérents : le contenu reste publiable, sans écoute active.<ul>${(h.raisons || []).slice(0, 4).map((r) => `<li>${echapper(r)}</li>`).join("")}</ul></div>`;
+  }
+  if (enCours && enCours.statut !== "ok") {
+    html += `<div class="encart ${enCours.statut === "echec" ? "erreur" : "info"}">${echapper(enCours.message || "")}</div>`;
+  }
+  if (h.possible && enCours?.statut !== "en cours") {
+    html += `<div style="margin-top:10px"><button class="btn petit" data-action="horodater" data-slug="${s}">Horodater (SRT)</button></div>`;
+  }
+  return html;
+}
+function boutonSegment(d, id) {
+  const audio = d.horodatage?.audio;
+  const t = audio?.timings.find((x) => x.id === id);
+  if (!t || typeof t.startMs !== "number" || typeof t.endMs !== "number") return "";
+  return `<button class="lire-seg" data-action="lire-segment" data-slug="${echapper(d.slug)}" data-quel="${audio.quel}" data-debut="${t.startMs}" data-fin="${t.endMs}" title="Écouter ce segment">▶</button>`;
+}
+
+// Lecture d'un segment pour contrôler l'alignement à l'oreille : marge de
+// 120 ms, arrêt surveillé par requestAnimationFrame (v1.2 § 9.2).
+const lecteurSegment = new Audio();
+lecteurSegment.preload = "auto";
+let boucleSegment = 0, boutonActif = null;
+function arreterSegment() {
+  cancelAnimationFrame(boucleSegment);
+  lecteurSegment.pause();
+  boutonActif?.classList.remove("en-cours");
+  boutonActif = null;
+}
+async function lireSegment(bouton) {
+  const meme = boutonActif === bouton;
+  arreterSegment();
+  if (meme) return;
+  audios.forEach((el) => el.pause());
+  const { slug, quel } = bouton.dataset;
+  const debut = Math.max(0, Number(bouton.dataset.debut) - 120) / 1000;
+  const fin = (Number(bouton.dataset.fin) + 120) / 1000;
+  const src = `/api/audio?slug=${encodeURIComponent(slug)}&quel=${quel}`;
+  if (!lecteurSegment.src.endsWith(src)) lecteurSegment.src = src;
+  lecteurSegment.currentTime = debut;
+  boutonActif = bouton;
+  bouton.classList.add("en-cours");
+  try { await lecteurSegment.play(); } catch (e) { arreterSegment(); toast("Lecture impossible", "erreur"); return; }
+  const surveiller = () => {
+    if (lecteurSegment.currentTime >= fin || lecteurSegment.paused) { arreterSegment(); return; }
+    boucleSegment = requestAnimationFrame(surveiller);
+  };
+  boucleSegment = requestAnimationFrame(surveiller);
+}
+
+async function horodater(slug) {
+  const avertissement = etat.detail?.slug === slug ? etat.detail.horodatage?.avertissement : null;
+  const message = "Horodater ce contenu à partir d'un SRT MacWhisper ?"
+    + (avertissement ? `\n\n${avertissement}` : "")
+    + "\n\nLes anciens segments et l'analyse sont sauvegardés à côté du bundle.";
+  if (!confirm(message)) return;
+  const r = await api("/api/horodater", { slug });
+  if (!r.ok) toast(r.erreur, "erreur");
+  else toast("Horodatage lancé");
+  rafraichir();
+}
+
 function verrou(titre, texte) {
   return `<div class="verrou-plein"><div><div class="grand">🔒</div><h2>${titre}</h2><div>${texte}</div></div></div>`;
 }
@@ -699,11 +781,13 @@ function panneauEtape(d, i) {
           <dl class="infos-liste">
             <dt>Langue</dt><dd>${src === "fr" ? "Français" : src === "en" ? "Anglais" : "Inconnue"}</dd>
             <dt>Transcription</dt><dd>${echapper(p.transcriptionProvider || "—")}</dd>
+            <dt>Horodatage</dt><dd>${badgeHorodatage(d)}</dd>
             <dt>Niveau cible</dt><dd>${echapper(d.meta.targetLevel || "—")}</dd>
             <dt>Thème</dt><dd>${echapper(d.meta.topic || "—")}</dd>
             <dt>Ajoutée le</dt><dd>${d.meta.createdAt ? new Date(d.meta.createdAt).toLocaleString("fr-FR") : "—"}</dd>
             <dt>Lien</dt><dd>${d.meta.sourceUrl ? `<a href="${echapper(d.meta.sourceUrl)}" target="_blank" rel="noopener">${echapper(d.meta.sourceUrl)}</a>` : "—"}</dd>
-          </dl></div>
+          </dl>
+          ${blocHorodatage(d)}</div>
         ${d.audio.original ? `<div class="carte">${lecteur(d.slug, "original",
           src === "fr" ? "Audio original <b>français</b> — conservé, jamais publié" : "Audio original <b>anglais</b> — c'est lui qui sera publié")}</div>` : ""}
       </div>
@@ -729,7 +813,7 @@ function panneauEtape(d, i) {
       </div>
       ${e.ancienFormat && !textesOk ? `<div class="encart attention">Contenu au format précédent : refaites la traduction segmentée (les anciens fichiers sont conservés).</div>` : ""}
       ${textesOk ? `<div class="encart ok">✓ Les deux textes sont complets et appariés segment par segment.</div>` : `<div class="carte">${blocFlux(d, "traduction", section)}</div>`}`;
-    const lignes = d.segments.map((x) => `<tr><td class="id">${echapper(x.id)}</td>
+    const lignes = d.segments.map((x) => `<tr><td class="id">${echapper(x.id)}${boutonSegment(d, x.id)}</td>
       <td class="${x.en ? "" : "vide"}">${echapper(x.en || "à traduire")}</td>
       <td class="${x.fr ? "" : "vide"}">${echapper(x.fr || "à traduire")}</td></tr>`).join("");
     return `<div class="deux-col"><div class="col gauche">${gauche}</div>
@@ -954,6 +1038,7 @@ async function rafraichir() {
   try {
     const [jr, br] = await Promise.all([api("/api/jobs"), api("/api/bundles")]);
     etat.jobs = jr.jobs || []; etat.imports = jr.imports || {}; etat.tts = jr.tts || {};
+    etat.horodatages = jr.horodatages || {};
     etat.bundles = br.bundles || [];
     const sig = JSON.stringify([etat.jobs, etat.bundles, etat.tts, etat.filtre, etat.recherche, etat.selection]);
     if (sig !== signatureListe) { rendreFiltres(); rendreListe(); signatureListe = sig; }
@@ -1042,6 +1127,8 @@ document.addEventListener("click", async (ev) => {
   else if (action === "prompt") copierPrompt(slug, type);
   else if (action === "coller") coller(slug, type);
   else if (action === "tts") lancerTts(slug);
+  else if (action === "horodater") horodater(slug);
+  else if (action === "lire-segment") lireSegment(cible);
   else if (action === "publier") {
     const r = await api("/api/importer", { slug });
     if (!r.ok) toast(r.erreur, "erreur");
