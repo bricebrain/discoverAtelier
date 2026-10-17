@@ -74,6 +74,8 @@ def generer(client, sources, options, etape=lambda _: None, wpm=130, revision=0,
     scripts, continuity = [], ''
     for index, batch in enumerate(batches):
         substantive = {r for f in batch['items'] if f['type'] not in ('promotion', 'context') for r in f['sourceSegments']}
+        if not substantive:
+            continue
         expected = max(30, round(sum(len(mots(s['text'])) for s in groups[index] if s['id'] in substantive) * .95)) if target is None else target
         spec = {'coverage': options['coverage'], 'level': options['level'], 'style': options['style'], 'targetWords': expected,
                 'wordTolerance': '20 percent', 'languageGuidance': 'For A2/B1 use common everyday words and short sentences, usually 8 to 18 words, fewer than 10 percent over 25 words. Explain essential specialist terms. Prefer simple verbs over formal synonyms.', 'continuity': continuity, 'revision': revision}
@@ -112,6 +114,8 @@ Do not mention podcast housekeeping or describe the editing process. Return JSON
         script = client.demander('write-' + str(index), prompt, script_schema, validate_script, cache_schema=SCRIPT)
         scripts.append(script)
         continuity = ' '.join(re.split(r'(?<=[.!?])\s+', script['segments'][-1]['text'])[-2:])
+    if not scripts:
+        raise ValueError('La source ne contient aucun contenu substantiel hors promotions.')
     script = {'segments': [s for obj in scripts for s in obj['segments']],
               'keyVocab': list(dict.fromkeys(w for obj in scripts for w in obj['keyVocab'])),
               'tooShortForSubject': any(obj['tooShortForSubject'] for obj in scripts),

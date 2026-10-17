@@ -41,6 +41,17 @@ class EvaluationTests(unittest.TestCase):
             with self.subTest(update=update), self.assertRaises(ValueError):
                 valider_script(script, {'s1', 's2'}, 'narration')
 
+    def test_promotion_only_source_never_reaches_writing_or_publication(self):
+        class Client:
+            def demander(self, stage, prompt, schema, *args, **kwargs):
+                if stage == 'plan':
+                    return {'summary': 'Advertising', 'speakers': [], 'properNames': [], 'glossary': []}
+                if stage.startswith('extract'):
+                    return {'items': [{'type': 'promotion', 'text': 'Subscribe now.', 'sourceSegments': ['s1']}]}
+                raise AssertionError('No invented script may be written from advertising alone.')
+        with self.assertRaisesRegex(ValueError, 'aucun contenu substantiel'):
+            adaptation.generer(Client(), [{'id': 's1', 'text': 'Subscribe now.'}], OPTIONS)
+
     def test_blocks_keep_every_segment_including_middle(self):
         sources = [{'id': str(i), 'text': 'word ' * 500} for i in range(13)]
         blocks = adaptation.blocs(sources)
