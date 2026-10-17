@@ -210,6 +210,26 @@ function prepPanel(ep) {
   const cancel = el('button', 'Fermer');
   cancel.onclick = () => { openPrep = null; renderEpisodes(); };
   actions.append(go, cancel);
+  if (ep.contentId) {
+    // L'épisode a déjà des versions dans l'app : on peut les supprimer d'ici.
+    const del = el('button', 'Supprimer la version publiée', 'danger');
+    del.onclick = async () => {
+      if (!confirm(`Supprimer les versions préparées de « ${ep.title} » ?\n\nElles disparaissent de l’app (audio et transcription) et de ce Mac. L’épisode reste.`)) return;
+      del.disabled = true;
+      try {
+        await api('delete-content', { contentId: ep.contentId, kind: 'episode', ref: ep.id });
+        ep.contentId = null;
+        openPrep = null;
+        banner('ok', 'Version supprimée', `« ${ep.title} » n’a plus de version préparée dans l’app.`);
+        renderEpisodes();
+        await refreshQueue(true);
+      } catch (error) {
+        banner('error', 'Impossible de supprimer', error.message);
+        del.disabled = false;
+      }
+    };
+    actions.append(del);
+  }
   box.append(actions);
   return box;
 }
@@ -331,19 +351,35 @@ function renderQueue() {
       b.onclick = () => act('cancel', item, b);
       actions.append(b);
     }
+    if (item.status === 'done' && item.contentId) {
+      const b = el('button', 'Supprimer la version publiée', 'danger');
+      b.onclick = () => {
+        if (!confirm(`Supprimer les versions préparées de « ${item.title} » ?\n\nElles disparaissent de l’app (audio et transcription) et de ce Mac. L’épisode ou la note d’origine restent.`)) return;
+        act('delete-content', item, b, { contentId: item.contentId, kind: item.kind, ref: item.ref });
+      };
+      actions.append(b);
+    }
+    if (item.status === 'done' || item.status === 'failed') {
+      const b = el('button', 'Retirer de la liste');
+      b.title = item.status === 'done' ? 'La version reste dans l’app ; seule la ligne disparaît d’ici.' : 'Efface cette demande en échec.';
+      b.onclick = () => act('remove', item, b);
+      actions.append(b);
+    }
     if (actions.childElementCount) card.append(actions);
     return card;
   });
   $('items').replaceChildren(...(nodes.length ? nodes : [el('p', 'Aucune préparation. Choisis un épisode dans l’onglet Podcasts.', 'empty')]));
 }
 
-async function act(action, item, button) {
+const ACT_ERRORS = { retry: 'Impossible de relancer', cancel: 'Impossible d’annuler', remove: 'Impossible de retirer', 'delete-content': 'Impossible de supprimer' };
+async function act(action, item, button, body) {
   button.disabled = true;
   try {
-    await api(action, { id: item.id });
-    await refreshQueue();
+    await api(action, body || { id: item.id });
+    if (action === 'delete-content') banner('ok', 'Version supprimée', `« ${item.title} » n’est plus dans l’app.`);
+    await refreshQueue(true);
   } catch (error) {
-    banner('error', action === 'retry' ? 'Impossible de relancer' : 'Impossible d’annuler', error.message);
+    banner('error', ACT_ERRORS[action], error.message);
     button.disabled = false;
   }
 }

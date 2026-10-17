@@ -1,6 +1,7 @@
 """Routes locales de l'onglet Discover ; aucun jeton n'est envoyé au navigateur."""
 import json
 import re
+import shutil
 import traceback
 from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urlsplit
@@ -16,6 +17,7 @@ MESSAGES = {
     'already_queued': 'Cet épisode a déjà une préparation en cours avec d’autres réglages. Annule-la d’abord pour changer de réglages.',
     'queue_conflict': 'Une préparation est déjà en cours pour cet épisode.',
     'queue_closed': 'Cette demande est déjà terminée ou annulée.',
+    'queue_active': 'Annule d’abord la préparation en cours.',
     'invalid_options': 'Réglages refusés : vérifie la couverture, le niveau et la durée cible.',
     'not_found': 'Épisode introuvable : il a peut-être quitté la liste des 10 derniers épisodes.',
     'invalid_url': 'Lien YouTube non reconnu : colle l’adresse d’une vidéo (youtube.com/watch?v=… ou youtu.be/…).',
@@ -34,6 +36,23 @@ def _erreur_discover(erreur):
 ASSETS = {'/discover': ('discover_queue.html', 'text/html; charset=utf-8'),
           '/discover_queue.js': ('discover_queue.js', 'text/javascript; charset=utf-8'),
           '/discover_review.js': ('discover_review.js', 'text/javascript; charset=utf-8')}
+
+
+CONTENU = re.compile(r'[a-z0-9][a-z0-9-]{2,95}')
+REFS = {'episode': r'[0-9a-f]{20}', 'youtube': r'[A-Za-z0-9_-]{11}', 'reflection': r'[0-9a-f-]{36}'}
+
+
+def effacer_versions_locales(root, kind, ref):
+    """Efface les versions publiées gardées sur ce Mac (audio, rapport de contrôle) ; la source transcrite reste en cache."""
+    if kind not in REFS or not re.fullmatch(REFS[kind], ref or ''):
+        return 0
+    dossier = Path(root) / (ref if kind == 'episode' else f'{kind}-{ref}')
+    effacees = 0
+    for prepared in dossier.glob('prepared-*'):
+        if prepared.is_dir() and (prepared / 'published.json').exists():
+            shutil.rmtree(prepared)
+            effacees += 1
+    return effacees
 
 
 def traiter(handler, methode, path, donnees=None):
@@ -110,6 +129,23 @@ def traiter(handler, methode, path, donnees=None):
             if action == 'retry':
                 FILE.demarrer()
             handler._envoyer(200, {'ok': True})
+        elif methode == 'POST' and path == '/api/discover/remove':
+            identifiant = str(donnees.get('id', ''))
+            if not re.fullmatch(r'[0-9a-f-]{36}', identifiant):
+                raise ValueError('Demande invalide.')
+            FILE.requete(FILE.config or discover_cible.charger_config(), 'POST', f'/atelier/queue/{identifiant}/remove', {})
+            handler._envoyer(200, {'ok': True})
+        elif methode == 'POST' and path == '/api/discover/delete-content':
+            contenu = str(donnees.get('contentId', ''))
+            if not CONTENU.fullmatch(contenu):
+                raise ValueError('Contenu invalide.')
+            try:
+                FILE.requete(FILE.config or discover_cible.charger_config(), 'DELETE', f'/atelier/contents/{contenu}')
+            except discover_cible.ErreurDiscover as erreur:
+                if erreur.status != 404:  # déjà supprimé depuis l'app : on nettoie quand même ce Mac
+                    raise
+            effacees = effacer_versions_locales(FILE.dossier, str(donnees.get('kind', '')), str(donnees.get('ref', '')))
+            handler._envoyer(200, {'ok': True, 'localVersions': effacees})
         elif methode == 'GET' and path == '/api/discover/flagged':
             handler._envoyer(200, {'reviews': discover_review.liste(FILE.dossier, publiees=True)})
         elif methode == 'GET' and path == '/api/discover/queue':
