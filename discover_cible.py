@@ -11,6 +11,12 @@ from manifeste_validation import valider_manifeste
 CONFIG = Path(__file__).resolve().parent / 'config_discover.json'
 
 
+class ErreurDiscover(RuntimeError):
+    def __init__(self, status, code):
+        self.status, self.code = status, code
+        super().__init__(f'Discover {status} : {code}')
+
+
 def charger_config():
     try:
         config = json.loads(CONFIG.read_text(encoding='utf-8'))
@@ -48,32 +54,40 @@ def requete(config, method, path, data=None, fichier=None, headers=None):
         if response.status >= 400:
             # Ne jamais inclure la configuration ou le jeton dans les erreurs.
             code = (result.get('error') or {}).get('code', 'http_error')
-            raise RuntimeError(f'Discover {response.status} : {code}')
+            raise ErreurDiscover(response.status, code)
         return result
     finally:
         connection.close()
 
 
-def publier_manifeste(manifest, paths, signal=None, config=None):
+def publier_manifeste(manifest, paths, signal=None, config=None, demande=None, verifier=None):
     valider_manifeste(manifest)
     config = config or charger_config()
     signal = signal or (lambda _: None)
     signal('Déclaration Discover…')
-    state = requete(config, 'POST', '/atelier/publications', {'manifest': manifest})
+    verifier = verifier or (lambda: None)
+    verifier()
+    lease_headers = {'X-Discover-Lease-Token': demande['leaseToken']} if demande else {}
+    declaration = {'manifest': manifest}
+    if demande:
+        declaration.update(queueItemId=demande['id'], leaseToken=demande['leaseToken'])
+    state = requete(config, 'POST', '/atelier/publications', declaration)
     if state['status'] == 'ready':
         return state
     base = '/atelier/publications/' + state['publicationId']
     for path in state['missing']:
         if path not in paths:
             raise ValueError('Fichier local manquant : ' + path)
+        verifier()
         f = manifest['files'][path]
         signal('Envoi Discover : ' + path)
         requete(config, 'PUT', base + '/files/' + quote(path, safe='/'),
                 fichier=paths[path], headers={'Content-Type': f['contentType'],
                                              'Content-Length': str(f['size']),
-                                             'x-content-sha256': f['sha256']})
+                                             'x-content-sha256': f['sha256'], **lease_headers})
     signal('Validation et publication Discover…')
-    result = requete(config, 'POST', base + '/commit')
+    verifier()
+    result = requete(config, 'POST', base + '/commit', headers=lease_headers)
     if result['status'] != 'ready':
         raise RuntimeError('Révision dépassée : la version courante a été conservée.')
     return result

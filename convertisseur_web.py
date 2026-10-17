@@ -40,6 +40,8 @@ import transcription  # sous-titres YouTube + MacWhisper (même dossier)
 import import_texte   # textes collés, .txt / .md, articles, productions personnelles
 import bundles        # fichiers des bundles + connexion Worker (même dossier)
 import discover_cible  # publication Discover indépendante
+import discover_http
+from discover_queue import FILE as FILE_DISCOVER
 import pipeline       # logique métier bilingue : prompts, validation, canPublish
 
 
@@ -762,6 +764,8 @@ class Gestionnaire(BaseHTTPRequestHandler):
                 restant -= len(bloc)
 
     def do_GET(self):
+        if discover_http.traiter(self, "GET", urllib.parse.urlsplit(self.path).path):
+            return
         url = urllib.parse.urlsplit(self.path)
         parametres = dict(urllib.parse.parse_qsl(url.query))
         if url.path == "/api/bundle":
@@ -795,6 +799,9 @@ class Gestionnaire(BaseHTTPRequestHandler):
 
     # ---- routes POST ----------------------------------------------------
     def do_POST(self):
+        if self.path.startswith("/api/discover/"):
+            discover_http.traiter(self, "POST", self.path)
+            return
         longueur = int(self.headers.get("Content-Length") or 0)
         try:
             donnees = json.loads(self.rfile.read(longueur).decode("utf-8") or "{}")
@@ -966,6 +973,11 @@ def main():
     url = f"http://127.0.0.1:{port}"
     bundles.assure_dossier()
     reprendre_au_demarrage()
+    if discover_cible.CONFIG.exists():
+        try:
+            FILE_DISCOVER.demarrer()
+        except (OSError, ValueError):
+            print("   Discover : vérifier config_discover.json.")
     print("🎓 Atelier English Fluency")
     print(f"   Interface   : {url}")
     print(f"   Bundles     : {bundles.DOSSIER_BUNDLES}")
@@ -980,6 +992,7 @@ def main():
     except KeyboardInterrupt:
         print("\nArrêt de l'atelier. À bientôt !")
     finally:
+        FILE_DISCOVER.arreter()
         serveur.server_close()
 
 
