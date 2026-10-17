@@ -1,14 +1,14 @@
 """Routes locales de l'onglet Discover ; aucun jeton n'est envoyé au navigateur."""
 import json
 import re
+import traceback
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 from discover_queue import FILE
 import discover_cible
 import discover_review
 import jsonschema
-from urllib.parse import parse_qs, urlencode
 
 # Messages compréhensibles pour les erreurs du Worker les plus courantes.
 MESSAGES = {
@@ -65,7 +65,6 @@ def traiter(handler, methode, path, donnees=None):
             active = {i['id'] for i in FILE.liste()['items'] if i['status'] == 'pending' and i['stage'] == 'review'}
             handler._envoyer(200, {'reviews': [r for r in discover_review.liste(FILE.dossier) if r['id'] in active]})
         elif methode == 'GET' and path == '/api/discover/review':
-            from urllib.parse import parse_qs
             identifiant = parse_qs(urlsplit(handler.path).query).get('id', [''])[0]
             handler._envoyer(200, discover_review.trouver(FILE.dossier, identifiant)[1])
         elif methode == 'POST' and path == '/api/discover/review':
@@ -128,4 +127,7 @@ def traiter(handler, methode, path, donnees=None):
         if message is None:
             message = str(erreur)[:300] if isinstance(erreur, ValueError) else 'Discover indisponible. Vérifier la configuration et la connexion.'
         handler._envoyer(503, {'erreur': message})
+    except Exception:  # un bug ne doit jamais couper la connexion : le navigateur croirait l'Atelier arrêté
+        traceback.print_exc()
+        handler._envoyer(500, {'erreur': 'Erreur interne de l’Atelier : le détail est dans sa fenêtre Terminal.'})
     return True
