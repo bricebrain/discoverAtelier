@@ -116,21 +116,27 @@ class ReviewTests(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
+    def test_auto_publication_marks_flagged_version_and_keeps_report(self):
+        self.prepared['evaluation']['verdict'] = 'review'
+        discover_review.exiger(self.item, self.prepared, self.source, self.folder)
+        self.assertTrue(self.prepared['evaluation']['autoPublished'])
+        self.assertTrue((Path(self.folder) / 'review.json').exists())
+
     def test_no_auto_publication_then_explicit_approval_bound_to_exact_text(self):
         with self.assertRaises(discover_review.RelectureRequise):
-            discover_review.exiger(self.item, self.prepared, self.source, self.folder)
+            discover_review.exiger(self.item, self.prepared, self.source, self.folder, automatique=False)
         review = json.loads((self.folder / 'review.json').read_text())
         discover_review.action(self.root, {'id': self.item['id'], 'signature': review['signature'], 'action': 'approve'})
-        discover_review.exiger(self.item, self.prepared, self.source, self.folder)
+        discover_review.exiger(self.item, self.prepared, self.source, self.folder, automatique=False)
         self.assertTrue(self.prepared['evaluation']['acceptedByUser'])
         self.prepared['script']['segments'][0]['text'] += ' Another claim.'
         with self.assertRaises(discover_review.RelectureRequise):
-            discover_review.exiger(self.item, self.prepared, self.source, self.folder)
+            discover_review.exiger(self.item, self.prepared, self.source, self.folder, automatique=False)
 
     def test_rejected_cannot_be_approved_and_editing_cannot_invent_references(self):
         self.prepared['evaluation']['verdict'] = 'rejected'
         with self.assertRaises(discover_review.RelectureRequise):
-            discover_review.exiger(self.item, self.prepared, self.source, self.folder)
+            discover_review.exiger(self.item, self.prepared, self.source, self.folder, automatique=False)
         review = json.loads((self.folder / 'review.json').read_text())
         with self.assertRaises(ValueError):
             discover_review.action(self.root, {'id': self.item['id'], 'signature': review['signature'], 'action': 'approve'})
@@ -141,20 +147,20 @@ class ReviewTests(unittest.TestCase):
 
     def test_new_outside_target_duration_requires_its_own_approval(self):
         with self.assertRaises(discover_review.RelectureRequise):
-            discover_review.exiger(self.item, self.prepared, self.source, self.folder)
+            discover_review.exiger(self.item, self.prepared, self.source, self.folder, automatique=False)
         review = json.loads((self.folder / 'review.json').read_text())
         discover_review.action(self.root, {'id': self.item['id'], 'signature': review['signature'], 'action': 'approve'})
         self.prepared['evaluation']['durationOutsideTarget'] = {'targetMinutes': 12, 'actualMinutes': 17}
         with self.assertRaises(discover_review.RelectureRequise):
-            discover_review.exiger(self.item, self.prepared, self.source, self.folder)
+            discover_review.exiger(self.item, self.prepared, self.source, self.folder, automatique=False)
         review = json.loads((self.folder / 'review.json').read_text())
         discover_review.action(self.root, {'id': self.item['id'], 'signature': review['signature'], 'action': 'approve'})
-        discover_review.exiger(self.item, self.prepared, self.source, self.folder)
+        discover_review.exiger(self.item, self.prepared, self.source, self.folder, automatique=False)
 
     def test_invalid_faithful_edit_leaves_script_untouched(self):
         self.prepared['faithful'] = [{'id': 's1', 'text': 'Source translation.'}]
         with self.assertRaises(discover_review.RelectureRequise):
-            discover_review.exiger(self.item, self.prepared, self.source, self.folder)
+            discover_review.exiger(self.item, self.prepared, self.source, self.folder, automatique=False)
         review = json.loads((self.folder / 'review.json').read_text())
         with self.assertRaises(ValueError):
             discover_review.action(self.root, {'id': self.item['id'], 'signature': review['signature'], 'action': 'edit',

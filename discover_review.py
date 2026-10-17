@@ -19,7 +19,9 @@ def signature(item, prepared, source):
                        'source': source['segmentsSha256']})
 
 
-def exiger(item, prepared, source, folder):
+def exiger(item, prepared, source, folder, automatique=True):
+    """Version signalée par le contrôle : publiée automatiquement (défaut, `autoPublish` dans
+    config_discover.json) et marquée « autoPublished » ; ou bloquée pour relecture si `autoPublish: false`."""
     if prepared['evaluation']['verdict'] == 'ok':
         return
     folder = Path(folder)
@@ -27,6 +29,10 @@ def exiger(item, prepared, source, folder):
               'signature': signature(item, prepared, source), 'prepared': prepared,
               'sources': json.loads(Path(source['segmentsFile']).read_text())['segments']}
     pipeline.ecrire_json(str(folder / 'review.json'), review)
+    if automatique:
+        # Le rapport reste consultable dans l'Atelier ; Discover affiche la version « non relue ».
+        prepared['evaluation']['autoPublished'] = True
+        return
     approved = pipeline.lire_json(str(folder / 'approval.json'))
     if prepared['evaluation']['verdict'] == 'review' and approved and approved.get('signature') == review['signature']:
         prepared['evaluation'].update(acceptedByUser=True, reviewedAt=approved['at'])
@@ -45,13 +51,14 @@ def trouver(root, identifiant):
     raise ValueError('Relecture introuvable.')
 
 
-def liste(root):
+def liste(root, publiees=False):
+    """Versions signalées : en attente de relecture, ou (publiees=True) déjà publiées automatiquement."""
     result = []
     for path in Path(root).glob('*/prepared-*/review.json'):
         data = pipeline.lire_json(str(path))
-        if data and not (path.parent / 'published.json').exists():
+        if data and (path.parent / 'published.json').exists() == publiees:
             result.append({'id': data['id'], 'title': data['title'], 'verdict': data['prepared']['evaluation']['verdict'],
-                           'signature': data['signature']})
+                           'signature': data['signature'], 'episode': path.parent.parent.name})
     return result
 
 

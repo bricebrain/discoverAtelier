@@ -12,8 +12,9 @@ CONFIG = Path(__file__).resolve().parent / 'config_discover.json'
 
 
 class ErreurDiscover(RuntimeError):
-    def __init__(self, status, code):
-        self.status, self.code = status, code
+    def __init__(self, status, code, message=''):
+        # `message` vient du Worker (textes rédigés par nous, en français) : affichable tel quel.
+        self.status, self.code, self.message = status, code, message
         super().__init__(f'Discover {status} : {code}')
 
 
@@ -53,8 +54,8 @@ def requete(config, method, path, data=None, fichier=None, headers=None):
         result = json.loads(raw or b'{}')
         if response.status >= 400:
             # Ne jamais inclure la configuration ou le jeton dans les erreurs.
-            code = (result.get('error') or {}).get('code', 'http_error')
-            raise ErreurDiscover(response.status, code)
+            erreur = result.get('error') or {}
+            raise ErreurDiscover(response.status, erreur.get('code', 'http_error'), str(erreur.get('message', ''))[:300])
         return result
     finally:
         connection.close()

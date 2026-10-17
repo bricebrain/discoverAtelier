@@ -39,7 +39,7 @@ class WorkflowTests(unittest.TestCase):
                 mock.patch.object(workflow.discover_audio, 'executer') as audio, \
                 mock.patch.object(workflow.discover_cible, 'publier_manifeste') as publish:
             with self.assertRaises(discover_review.RelectureRequise):
-                workflow.preparer(self.item, self.source, self.root, lambda _: None, lambda: None, {}, self.client)
+                workflow.preparer(self.item, self.source, self.root, lambda _: None, lambda: None, {'autoPublish': False}, self.client)
             audio.assert_not_called()
             publish.assert_not_called()
 

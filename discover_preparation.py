@@ -57,7 +57,8 @@ def preparer(item, source, root, etape, verifier, config, client=None):
         if not .8 * target <= actual <= 1.2 * target:
             prepared['evaluation'].update(verdict='review', durationOutsideTarget={'targetMinutes': target, 'actualMinutes': round(actual, 2)})
     pipeline.ecrire_json(str(folder / 'prepared.json'), prepared)
-    discover_review.exiger(item, prepared, source, folder)
+    automatique = bool(config.get('autoPublish', True))
+    discover_review.exiger(item, prepared, source, folder, automatique)
     etape('tts')
     speeds = discover_audio.calibrer(root.parent / '.kokoro', verifier)
     audio = discover_audio.executer(prepared['script']['segments'], folder, variant_key(item['options']), verifier, speeds)
@@ -73,7 +74,7 @@ def preparer(item, source, root, etape, verifier, config, client=None):
         # Une approbation de texte ne vaut pas approbation d'une nouvelle durée hors cible.
         prepared['evaluation'].pop('acceptedByUser', None)
         prepared['evaluation'].pop('reviewedAt', None)
-        discover_review.exiger(item, prepared, source, folder)
+        discover_review.exiger(item, prepared, source, folder, automatique)
     prepared['evaluation']['actualDurationMs'] = audio['durationMs']
     if faithful:
         etape('tts')

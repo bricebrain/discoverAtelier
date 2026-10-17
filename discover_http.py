@@ -1,11 +1,33 @@
 """Routes locales de l'onglet Discover ; aucun jeton n'est envoyé au navigateur."""
 import json
+import re
 from pathlib import Path
 from urllib.parse import urlsplit
 
 from discover_queue import FILE
+import discover_cible
 import discover_review
 import jsonschema
+from urllib.parse import parse_qs, urlencode
+
+# Messages compréhensibles pour les erreurs du Worker les plus courantes.
+MESSAGES = {
+    'unauthenticated': 'Le Worker refuse le jeton de l’Atelier : vérifier « atelierToken » dans config_discover.json.',
+    'already_queued': 'Cet épisode a déjà une préparation en cours avec d’autres réglages. Annule-la d’abord pour changer de réglages.',
+    'queue_conflict': 'Une préparation est déjà en cours pour cet épisode.',
+    'queue_closed': 'Cette demande est déjà terminée ou annulée.',
+    'invalid_options': 'Réglages refusés : vérifie la couverture, le niveau et la durée cible.',
+    'not_found': 'Épisode introuvable : il a peut-être quitté la liste des 10 derniers épisodes.',
+}
+FILTRES = ('category', 'show', 'lang', 'state', 'cursor')
+
+
+def _erreur_discover(erreur):
+    if isinstance(erreur, discover_cible.ErreurDiscover):
+        return MESSAGES.get(erreur.code) or erreur.message or f'Le Worker a refusé la demande ({erreur.code}).'
+    if isinstance(erreur, OSError):
+        return 'Worker Discover injoignable : vérifier la connexion Internet et « workerUrl ».'
+    return None
 
 ASSETS = {'/discover': ('discover_queue.html', 'text/html; charset=utf-8'),
           '/discover_queue.js': ('discover_queue.js', 'text/javascript; charset=utf-8'),
@@ -48,6 +70,32 @@ def traiter(handler, methode, path, donnees=None):
             result = discover_review.action(FILE.dossier, donnees)
             FILE.demarrer()
             handler._envoyer(200, result)
+        elif methode == 'GET' and path == '/api/discover/shows':
+            handler._envoyer(200, FILE.requete(FILE.config or discover_cible.charger_config(), 'GET', '/atelier/shows'))
+        elif methode == 'GET' and path == '/api/discover/episodes':
+            query = parse_qs(urlsplit(handler.path).query)
+            filtres = {k: v[0][:200] for k, v in query.items() if k in FILTRES and v and v[0]}
+            chemin = '/atelier/episodes' + ('?' + urlencode(filtres) if filtres else '')
+            handler._envoyer(200, FILE.requete(FILE.config or discover_cible.charger_config(), 'GET', chemin))
+        elif methode == 'POST' and path == '/api/discover/prepare':
+            episode = str(donnees.get('episodeId', ''))
+            options = donnees.get('options') or {}
+            if not re.fullmatch(r'[0-9a-f]{20}', episode) or not isinstance(options, dict):
+                raise ValueError('Demande de préparation invalide.')
+            resultat = FILE.requete(FILE.config or discover_cible.charger_config(), 'POST', f'/atelier/episodes/{episode}/prepare', options)
+            FILE.demarrer()  # la préparation commence tout de suite sur ce Mac
+            handler._envoyer(200, resultat)
+        elif methode == 'POST' and path in ('/api/discover/retry', '/api/discover/cancel'):
+            identifiant = str(donnees.get('id', ''))
+            if not re.fullmatch(r'[0-9a-f-]{36}', identifiant):
+                raise ValueError('Demande invalide.')
+            action = path.rsplit('/', 1)[1]
+            FILE.requete(FILE.config or discover_cible.charger_config(), 'POST', f'/atelier/queue/{identifiant}/{action}', {})
+            if action == 'retry':
+                FILE.demarrer()
+            handler._envoyer(200, {'ok': True})
+        elif methode == 'GET' and path == '/api/discover/flagged':
+            handler._envoyer(200, {'reviews': discover_review.liste(FILE.dossier, publiees=True)})
         elif methode == 'GET' and path == '/api/discover/queue':
             handler._envoyer(200, {**FILE.liste(), 'state': FILE.etat()})
         elif methode == 'POST' and path == '/api/discover/start':
@@ -59,5 +107,8 @@ def traiter(handler, methode, path, donnees=None):
         else:
             handler._envoyer(404, {'erreur': 'Route inconnue.'})
     except (OSError, ValueError, RuntimeError, jsonschema.ValidationError) as erreur:
-        handler._envoyer(503, {'erreur': str(erreur)[:300] if isinstance(erreur, ValueError) else 'Discover indisponible. Vérifier la configuration et la connexion.'})
+        message = _erreur_discover(erreur)
+        if message is None:
+            message = str(erreur)[:300] if isinstance(erreur, ValueError) else 'Discover indisponible. Vérifier la configuration et la connexion.'
+        handler._envoyer(503, {'erreur': message})
     return True
