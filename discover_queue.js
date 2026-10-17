@@ -22,6 +22,9 @@ const STAGE_TEXT = {
   review: 'En attente de relecture (mode manuel)', tts: 'Création de l’audio anglais (Kokoro)', publish: 'Publication dans Discover',
 };
 const COVERAGE = { full: 'Intégral', condensed: 'Condensé', essentials: 'L’essentiel' };
+const KINDS = { episode: 'Podcast', youtube: 'YouTube', reflection: 'Texte · My Mind' };
+// Un texte n'a ni téléchargement ni audio source : ses étapes commencent au découpage.
+const stepsFor = (kind) => (kind === 'reflection' ? STEPS.filter(([key]) => !['download', 'normalize'].includes(key)) : STEPS);
 const LEVELS = ['A2', 'B1', 'B2', 'C1', 'original'];
 
 let categories = {};
@@ -111,12 +114,13 @@ function renderEngine(state) {
   }
 }
 
-// ── Podcasts ─────────────────────────────────────────────────────────────────
-function prepPanel(ep) {
-  const long = (ep.durationSec || 0) > 25 * 60;
+// ── Réglages d'une préparation (épisode, vidéo, texte) ───────────────────────
+/** Éditeur couverture / niveau / durée / fidèle ; `value()` rend les options à envoyer. */
+function optionsEditor({ long = false, faithfulAllowed = false } = {}) {
   const opts = { coverage: long ? 'condensed' : 'full', level: 'B1', targetMinutes: long ? 12 : null, faithful: false };
-  const box = el('div', null, 'prep');
-
+  const box = el('div');
+  box.style.display = 'grid';
+  box.style.gap = '10px';
   const seg = (label, values, key, names) => {
     const wrap = el('div', null, 'row');
     wrap.append(el('label', label));
@@ -124,6 +128,7 @@ function prepPanel(ep) {
     group.setAttribute('role', 'radiogroup');
     for (const v of values) {
       const b = el('button', names ? names[v] : v);
+      b.type = 'button';
       b.setAttribute('role', 'radio');
       b.setAttribute('aria-checked', String(opts[key] === v));
       b.onclick = () => {
@@ -136,7 +141,6 @@ function prepPanel(ep) {
     wrap.append(group);
     return wrap;
   };
-
   const render = () => {
     box.replaceChildren();
     box.append(seg('Couverture', ['full', 'condensed', 'essentials'], 'coverage', COVERAGE));
@@ -151,41 +155,62 @@ function prepPanel(ep) {
       input.oninput = () => { opts.targetMinutes = Math.max(min, Math.min(max, Number(input.value) || min)); };
       row.append(input, el('span', `min (${min} à ${max})`, 'small muted'));
     }
-    if (ep.language === 'fr') {
+    if (faithfulAllowed) {
       const label = el('label');
       const check = el('input');
       check.type = 'checkbox';
       check.checked = opts.faithful;
       check.onchange = () => { opts.faithful = check.checked; };
-      label.append(check, document.createTextNode(' Ajouter la traduction fidèle intégrale'));
+      label.append(check, document.createTextNode(' Ajouter la traduction fidèle intégrale (source en français)'));
       row.append(label);
     }
-    box.append(row);
-    box.append(el('p', long && opts.coverage === 'full'
-      ? 'Épisode long : l’intégral demandera beaucoup de temps de traduction et d’audio. Le condensé est conseillé.'
-      : 'La préparation démarre aussitôt sur ce Mac et se publie automatiquement dans l’app.', 'small muted'));
-    const actions = el('div', null, 'actions');
-    const go = el('button', 'Lancer la préparation', 'primary');
-    go.onclick = async () => {
-      go.disabled = true;
-      try {
-        const body = { coverage: opts.coverage, level: opts.level, faithful: opts.faithful };
-        if (opts.coverage !== 'full') body.targetMinutes = opts.targetMinutes;
-        await api('prepare', { episodeId: ep.id, options: body });
-        openPrep = null;
-        banner('ok', 'Préparation lancée', `« ${ep.title} » — suis son avancement dans l’onglet Préparations.`, { label: 'Voir', run: () => selectTab('queue') });
-        await refreshQueue();
-      } catch (error) {
-        banner('error', 'Préparation refusée', error.message);
-        go.disabled = false;
-      }
-    };
-    const cancel = el('button', 'Fermer');
-    cancel.onclick = () => { openPrep = null; renderEpisodes(); };
-    actions.append(go, cancel);
-    box.append(actions);
+    if (row.childElementCount) box.append(row);
   };
   render();
+  return {
+    element: box,
+    value: () => {
+      const body = { coverage: opts.coverage, level: opts.level, faithful: opts.faithful };
+      if (opts.coverage !== 'full') body.targetMinutes = opts.targetMinutes;
+      return body;
+    },
+    coverage: () => opts.coverage,
+  };
+}
+
+// ── Podcasts ─────────────────────────────────────────────────────────────────
+function prepPanel(ep) {
+  const long = (ep.durationSec || 0) > 25 * 60;
+  const editor = optionsEditor({ long, faithfulAllowed: ep.language === 'fr' });
+  const box = el('div', null, 'prep');
+  box.append(editor.element);
+  const hint = el('p', '', 'small muted');
+  const updateHint = () => {
+    hint.textContent = long && editor.coverage() === 'full'
+      ? 'Épisode long : l’intégral demandera beaucoup de temps de traduction et d’audio. Le condensé est conseillé.'
+      : 'La préparation démarre aussitôt sur ce Mac et se publie automatiquement dans l’app.';
+  };
+  editor.element.addEventListener('click', updateHint);
+  updateHint();
+  box.append(hint);
+  const actions = el('div', null, 'actions');
+  const go = el('button', 'Lancer la préparation', 'primary');
+  go.onclick = async () => {
+    go.disabled = true;
+    try {
+      await api('prepare', { episodeId: ep.id, options: editor.value() });
+      openPrep = null;
+      banner('ok', 'Préparation lancée', `« ${ep.title} » — suis son avancement dans l’onglet Préparations.`, { label: 'Voir', run: () => selectTab('queue') });
+      await refreshQueue(true);
+    } catch (error) {
+      banner('error', 'Préparation refusée', error.message);
+      go.disabled = false;
+    }
+  };
+  const cancel = el('button', 'Fermer');
+  cancel.onclick = () => { openPrep = null; renderEpisodes(); };
+  actions.append(go, cancel);
+  box.append(actions);
   return box;
 }
 
@@ -252,8 +277,10 @@ async function loadShows() {
 // ── Préparations ─────────────────────────────────────────────────────────────
 function steps(item) {
   const wrap = el('div', null, 'steps');
-  const index = STEPS.findIndex((s) => s[2].includes(item.stage));
-  STEPS.forEach(([, label], i) => {
+  const list = stepsFor(item.kind);
+  const index = list.findIndex((s) => s[2].includes(item.stage));
+  list.forEach(([key, label], i) => {
+    if (key === 'transcribe' && item.kind === 'reflection') label = 'Découpage';
     const done = item.status === 'done' || (index >= 0 && i < index);
     const now = item.status === 'leased' && i === index;
     const fail = item.status === 'failed' && (index >= 0 ? i === index : i === 0);
@@ -274,7 +301,9 @@ function renderQueue() {
     const head = el('div', null, 'row');
     head.style.justifyContent = 'space-between';
     const title = el('div');
-    title.append(el('h3', item.title), el('div', optionsText(item.options), 'small muted'));
+    const kind = el('div', null, 'meta');
+    kind.append(el('span', KINDS[item.kind] || item.kind, 'pill kind'), el('span', optionsText(item.options)));
+    title.append(el('h3', item.title), kind);
     const [cls, text] = item.status === 'done' ? ['done', 'Publié dans l’app'] : item.status === 'failed' ? ['fail', 'Échec']
       : item.status === 'leased' ? ['run', 'En cours'] : ['wait', item.stage === 'review' ? 'À relire' : 'En file'];
     head.append(title, el('span', text, 'pill ' + cls));
@@ -320,8 +349,9 @@ async function act(action, item, button) {
 }
 
 let busy = false;
-async function refreshQueue() {
+async function refreshQueue(force = false) {
   if (busy) return;
+  if (force) lastQueueSignature = '';
   busy = true;
   try {
     const data = await api('queue');
@@ -346,7 +376,7 @@ async function refreshQueue() {
 
 // ── Onglets et démarrage ─────────────────────────────────────────────────────
 function selectTab(name) {
-  for (const t of ['podcasts', 'queue', 'checks']) {
+  for (const t of ['podcasts', 'import', 'queue', 'checks']) {
     $('tab-' + t).setAttribute('aria-selected', String(t === name));
     $('panel-' + t).hidden = t !== name;
   }
@@ -357,7 +387,43 @@ function setChecks(count) {
   $('count-checks').hidden = !count;
   $('count-checks').textContent = count;
 }
-for (const t of ['podcasts', 'queue', 'checks']) $('tab-' + t).addEventListener('click', () => selectTab(t));
+for (const t of ['podcasts', 'import', 'queue', 'checks']) $('tab-' + t).addEventListener('click', () => selectTab(t));
+
+// ── Importer : vidéo YouTube et texte ────────────────────────────────────────
+const ytOptions = optionsEditor();
+$('yt-options').append(ytOptions.element);
+const txOptions = optionsEditor({ faithfulAllowed: true });
+$('tx-options').append(txOptions.element);
+async function submitImport(form, body, done) {
+  const button = form.querySelector('button[type=submit]');
+  button.disabled = true;
+  try {
+    const { item } = await api('import', body);
+    banner('ok', 'Préparation lancée', `« ${item.title} » rejoint la file. L’Atelier s’en occupe tout de suite.`, { label: 'Voir', run: () => selectTab('queue') });
+    done();
+    await refreshQueue(true);
+  } catch (error) {
+    banner('error', 'Import refusé', error.message);
+  } finally {
+    button.disabled = false;
+  }
+}
+$('form-youtube').addEventListener('submit', (e) => {
+  e.preventDefault();
+  void submitImport($('form-youtube'), { kind: 'youtube', url: $('yt-url').value.trim(), options: ytOptions.value() }, () => { $('yt-url').value = ''; });
+});
+$('form-text').addEventListener('submit', (e) => {
+  e.preventDefault();
+  void submitImport($('form-text'), { kind: 'text', title: $('tx-title').value.trim(), text: $('tx-text').value, options: txOptions.value() },
+    () => { $('tx-title').value = ''; $('tx-text').value = ''; $('tx-file').value = ''; });
+});
+$('tx-file').addEventListener('change', async () => {
+  const file = $('tx-file').files[0];
+  if (!file) return;
+  if (file.size > 400_000) { banner('error', 'Fichier trop volumineux', 'Un texte de 100 000 caractères au plus.'); return; }
+  $('tx-text').value = await file.text();
+  if (!$('tx-title').value) $('tx-title').value = file.name.replace(/\.(txt|md)$/i, '');
+});
 for (const id of ['show', 'category', 'lang']) $(id).addEventListener('change', () => loadEpisodes());
 $('q').addEventListener('input', renderEpisodes);
 $('more').addEventListener('click', () => loadEpisodes(true));

@@ -77,7 +77,7 @@ def valider_manifeste(m, context=None):
     ref = c.get('sourceRef') or ''
     if ((c['sourceType'] == 'podcast' and not re.fullmatch(r'episode:[0-9a-f]{20}', ref))
             or (c['sourceType'] == 'reflection' and not re.fullmatch(r'reflection:[0-9a-f-]{36}', ref))
-            or (c['sourceType'] == 'youtube' and c.get('sourceRef') is not None)):
+            or (c['sourceType'] == 'youtube' and c.get('sourceRef') is not None and not re.fullmatch(r'youtube:[A-Za-z0-9_-]{11}', ref))):
         refuser('invalid_source_ref')
     if sum(f['size'] for f in files.values()) > 300_000_000:
         refuser('publication_too_large')

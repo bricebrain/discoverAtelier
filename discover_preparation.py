@@ -10,7 +10,7 @@ import discover_vocabulary
 import pipeline
 from discover_ai import Client, empreinte
 from discover_evaluation import evaluer, valider_script
-from discover_podcast_bundle import construire, variant_key
+from discover_podcast_bundle import construire, content_id as identifiant_contenu, variant_key
 
 
 def preparer(item, source, root, etape, verifier, config, client=None):
@@ -81,7 +81,7 @@ def preparer(item, source, root, etape, verifier, config, client=None):
         faithful_audio = discover_audio.executer(faithful, folder, 'en-faithful', verifier, speeds)
     verifier()
     etape('publish')
-    content_id = 'podcast-' + item['ref']
+    content_id = identifiant_contenu(item)
     try:
         previous = discover_cible.requete(config, 'GET', '/atelier/contents/' + content_id + '/manifest')['manifest']
     except discover_cible.ErreurDiscover as e:

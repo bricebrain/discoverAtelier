@@ -9,6 +9,17 @@ from discover_ai import empreinte as fingerprint
 from manifeste_validation import valider_manifeste, valider_segments
 
 
+def content_id(item):
+    """Identifiant stable du contenu publié, selon la source de la demande."""
+    kind = item['source'].get('kind', 'episode')
+    if kind == 'youtube':
+        # Les identifiants YouTube ont des majuscules : le manifeste n'accepte que des minuscules.
+        return 'youtube-' + fingerprint(item['ref'])[:20]
+    if kind == 'reflection':
+        return 'reflection-' + item['ref']
+    return 'podcast-' + item['ref']
+
+
 def variant_key(options):
     suffix = options['level'].lower()
     key = f"en-{options['coverage']}-{suffix}"
@@ -26,10 +37,16 @@ def construire(item, source, prepared, audio, folder, faithful=None, faithful_au
     original_key = language + '-source'
     options = item['options']
     paths, files, variants = {}, {}, []
-    source_duration = pipeline.duree_audio_secondes(source['audioFile'])
-    if not source_duration:
-        raise ValueError('Durée originale illisible.')
+    kind = item['source'].get('kind', 'episode')
     original_doc = json.loads(Path(source['segmentsFile']).read_text())
+    if source.get('audioFile'):
+        source_duration = pipeline.duree_audio_secondes(source['audioFile'])
+        if not source_duration:
+            raise ValueError('Durée originale illisible.')
+    else:
+        # Texte sans audio : durée de lecture estimée à 150 mots par minute (pour le rapport de condensation).
+        mots = sum(len(s['text'].split()) for s in original_doc['segments'])
+        source_duration = max(60, mots / 150 * 60)
     ids = {s['id'] for s in original_doc['segments']}
 
     def add(path, local, content_type):
@@ -60,16 +77,24 @@ def construire(item, source, prepared, audio, folder, faithful=None, faithful_au
         reference_end = original_doc['segments'][-1].get('endMs')
         if reference_end is None or abs(reference_end - source_duration*1000) > 1500:
             timed = False
-    original_audio = {'source': 'publisher_stream', 'url': item['source']['audioUrl'], 'origin': 'original',
-                      'durationMs': round(source_duration * 1000), 'timingSource': original_doc['timingSource'] if timed else 'none'}
-    if options['keepOriginalCopy']:
-        original_audio.pop('url')
-        original_audio.update(source='r2', file='audio/' + original_key + '.mp3')
-        add(original_audio['file'], source['audioFile'], 'audio/mpeg')
+    if kind == 'reflection':
+        original_audio = None
+        timed = False
+    else:
+        original_audio = {'source': 'publisher_stream', 'url': item['source'].get('audioUrl'), 'origin': 'original',
+                          'durationMs': round(source_duration * 1000), 'timingSource': original_doc['timingSource'] if timed else 'none'}
+        # YouTube n'a pas de flux officiel lisible dans l'app : copie privée de l'audio, comme l'option de l'épisode.
+        if options['keepOriginalCopy'] or kind == 'youtube':
+            original_audio.pop('url')
+            original_audio.update(source='r2', file='audio/' + original_key + '.mp3')
+            add(original_audio['file'], source['audioFile'], 'audio/mpeg')
     original = [{k: s[k] for k in ('id', 'text', 'speaker') if s.get(k) is not None} |
                 {'startMs': s.get('startMs') if timed else None, 'endMs': s.get('endMs') if timed else None}
                 for s in original_doc['segments']]
-    document(original_key, original, {'key': original_key, 'kind': 'source', 'language': language, 'coverage': 'full', 'audio': original_audio})
+    source_variant = {'key': original_key, 'kind': 'source', 'language': language, 'coverage': 'full'}
+    if original_audio:
+        source_variant['audio'] = original_audio
+    document(original_key, original, source_variant)
 
     def narrated(key, script, result, variant):
         timing = json.loads(Path(result['timingsFile']).read_text())
@@ -97,7 +122,7 @@ def construire(item, source, prepared, audio, folder, faithful=None, faithful_au
         # Une réinterprétation des mêmes IDs casserait les renvois des anciennes variantes.
         if previous['files'][old_source['segmentsFile']]['sha256'] != files[variants[0]['segmentsFile']]['sha256']:
             raise ValueError('La source publiée a changé. Conserver et vérifier la source avant de préparer une autre version.')
-        if old_source.get('audio', {}).get('source') == 'r2' and not options['keepOriginalCopy']:
+        if (old_source.get('audio') or {}).get('source') == 'r2' and not options['keepOriginalCopy'] and kind == 'episode':
             variants[0]['audio'] = copy.deepcopy(old_source['audio'])
             old_path = old_source['audio']['file']
             files[old_path] = previous['files'][old_path]
@@ -108,11 +133,16 @@ def construire(item, source, prepared, audio, folder, faithful=None, faithful_au
                 for path in [variant['segmentsFile'], (variant.get('audio') or {}).get('file')]:
                     if path:
                         files[path] = previous['files'][path]
-    manifest = {'schemaVersion': 1, 'content': {'id': 'podcast-' + item['ref'], 'title': item['source']['title'],
-                'originalLanguage': language, 'sourceType': 'podcast', 'sourceRef': 'episode:' + item['ref'],
-                'sourceUrl': item['source']['audioUrl'], 'category': item['source']['category'], 'rights': 'personal_use',
-                'editorial': 'discovery' if item['source']['category'] in ('stories', 'science') else 'news'},
-                'variants': variants, 'files': files, 'removeVariants': []}
-    valider_manifeste(manifest, {'episodeAudioUrl': item['source']['audioUrl']})
+    category = item['source'].get('category')
+    content = {'id': content_id(item), 'title': item['source']['title'], 'originalLanguage': language, 'rights': 'personal_use',
+               'category': category, 'editorial': 'discovery' if kind != 'episode' or category in ('stories', 'science') else 'news'}
+    if kind == 'youtube':
+        content.update(sourceType='youtube', sourceRef='youtube:' + item['ref'], sourceUrl=item['source']['url'])
+    elif kind == 'reflection':
+        content.update(sourceType='reflection', sourceRef='reflection:' + item['ref'], sourceUrl=None)
+    else:
+        content.update(sourceType='podcast', sourceRef='episode:' + item['ref'], sourceUrl=item['source']['audioUrl'])
+    manifest = {'schemaVersion': 1, 'content': content, 'variants': variants, 'files': files, 'removeVariants': []}
+    valider_manifeste(manifest, {'episodeAudioUrl': item['source']['audioUrl']} if kind == 'episode' else None)
     pipeline.ecrire_json(str(folder / 'manifest.json'), manifest)
     return manifest, paths

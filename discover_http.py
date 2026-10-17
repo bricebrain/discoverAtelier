@@ -18,6 +18,8 @@ MESSAGES = {
     'queue_closed': 'Cette demande est déjà terminée ou annulée.',
     'invalid_options': 'Réglages refusés : vérifie la couverture, le niveau et la durée cible.',
     'not_found': 'Épisode introuvable : il a peut-être quitté la liste des 10 derniers épisodes.',
+    'invalid_url': 'Lien YouTube non reconnu : colle l’adresse d’une vidéo (youtube.com/watch?v=… ou youtu.be/…).',
+    'invalid_text': 'Le texte doit faire entre 20 et 100 000 caractères.',
 }
 FILTRES = ('category', 'show', 'lang', 'state', 'cursor')
 
@@ -84,6 +86,21 @@ def traiter(handler, methode, path, donnees=None):
                 raise ValueError('Demande de préparation invalide.')
             resultat = FILE.requete(FILE.config or discover_cible.charger_config(), 'POST', f'/atelier/episodes/{episode}/prepare', options)
             FILE.demarrer()  # la préparation commence tout de suite sur ce Mac
+            handler._envoyer(200, resultat)
+        elif methode == 'POST' and path == '/api/discover/import':
+            # Lien YouTube ou texte importé : la demande rejoint la même file que les épisodes.
+            kind = donnees.get('kind')
+            options = donnees.get('options') or {}
+            if kind not in ('youtube', 'text') or not isinstance(options, dict):
+                raise ValueError('Import invalide.')
+            corps = {'kind': kind, 'options': options}
+            if kind == 'youtube':
+                corps['url'] = str(donnees.get('url', ''))[:500]
+            else:
+                corps['title'] = str(donnees.get('title', ''))[:200]
+                corps['text'] = str(donnees.get('text', ''))[:100_000]
+            resultat = FILE.requete(FILE.config or discover_cible.charger_config(), 'POST', '/atelier/sources', corps)
+            FILE.demarrer()
             handler._envoyer(200, resultat)
         elif methode == 'POST' and path in ('/api/discover/retry', '/api/discover/cancel'):
             identifiant = str(donnees.get('id', ''))

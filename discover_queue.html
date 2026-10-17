@@ -2,90 +2,151 @@
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Discover · Atelier</title>
 <style>
-:root{
-  --bg:#f5f4f0;--surface:#fff;--ink:#22272a;--muted:#626a65;--line:#dde2de;--accent:#27684b;--accent-soft:#e6efe9;
-  --amber:#a8650d;--amber-soft:#fbf1e1;--red:#a32c27;--red-soft:#fbe9e7;--blue:#2f5fb3;--blue-soft:#e8eef9;
-  font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:var(--bg);color-scheme:light dark
-}
-@media(prefers-color-scheme:dark){:root{--bg:#161a18;--surface:#212825;--ink:#e3eae5;--muted:#a9b5ad;--line:#33403a;--accent:#7cc79e;--accent-soft:#25382d;
-  --amber:#e8b062;--amber-soft:#3a2f1e;--red:#ff9f97;--red-soft:#3d2422;--blue:#8fb1f0;--blue-soft:#1f2a3d}}
-*{box-sizing:border-box}[hidden]{display:none!important}body{margin:0}a{color:var(--accent);text-decoration:none}
-header.top{display:flex;align-items:center;gap:20px;padding:14px 28px;background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
-header.top nav{display:flex;gap:20px;flex-wrap:wrap}header.top nav [aria-current]{font-weight:700;border-bottom:2px solid var(--accent)}
-main{max-width:1120px;margin:24px auto 80px;padding:0 20px}
-h1{font-family:Georgia,serif;font-size:30px;margin:0 0 4px}h2{font-size:18px;margin:0}h3{font-size:16px;margin:0 0 4px}
-p{line-height:1.55;margin:6px 0}.muted{color:var(--muted)}.small{font-size:13px}
-button,select,input{font:inherit;color:inherit}
-button{padding:8px 14px;border:1px solid var(--line);border-radius:999px;background:var(--surface);cursor:pointer;font-weight:600}
-button:hover:not(:disabled){border-color:var(--accent)}button:disabled{opacity:.5;cursor:default}
-button.primary{background:var(--accent);border-color:var(--accent);color:#fff}@media(prefers-color-scheme:dark){button.primary{color:#0f1d16}}
-button.danger{color:var(--red)}button.link{border:none;background:none;padding:4px 6px;color:var(--accent)}
-select,input[type=search],input[type=number]{padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
-/* Bandeau d'état du préparateur */
-#engine{display:grid;grid-template-columns:auto 1fr auto;gap:16px;align-items:center;margin:18px 0 8px}
-#engine .dot{width:12px;height:12px;border-radius:50%;background:var(--muted)}#engine.running .dot{background:var(--accent);box-shadow:0 0 0 6px var(--accent-soft)}
-#engine .state{font-weight:700}#engine .msg{color:var(--muted);font-size:14px}
-#banner{display:none;margin:10px 0}#banner.show{display:block}
-.alert{border-radius:12px;padding:12px 14px;border:1px solid transparent;display:flex;gap:12px;align-items:flex-start}
-.alert.error{background:var(--red-soft);color:var(--red);border-color:color-mix(in srgb,var(--red) 30%,transparent)}
-.alert.warn{background:var(--amber-soft);color:var(--amber)}.alert.info{background:var(--blue-soft);color:var(--blue)}.alert.ok{background:var(--accent-soft);color:var(--accent)}
-.alert strong{display:block;margin-bottom:2px}.alert .grow{flex:1}
-/* Onglets */
-.tabs{display:flex;gap:6px;margin:18px 0 14px;border-bottom:1px solid var(--line)}
-.tabs button{border:none;border-radius:0;background:none;padding:10px 14px;border-bottom:3px solid transparent;color:var(--muted)}
-.tabs button[aria-selected=true]{color:var(--ink);border-bottom-color:var(--accent)}
-.count{display:inline-block;min-width:20px;padding:0 6px;margin-left:6px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:12px}
-/* Podcasts */
-.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
-.filters input[type=search]{flex:1;min-width:200px}
-.episodes{display:grid;gap:10px}
-.episode{display:grid;grid-template-columns:64px 1fr auto;gap:14px;align-items:start}
-.episode img,.episode .ph{width:64px;height:64px;border-radius:12px;object-fit:cover;background:var(--line)}
-.episode .show{font-size:13px;color:var(--muted);font-weight:600}.episode .title{font-weight:650;margin:2px 0}
-.meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:13px;color:var(--muted)}
-.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700}
-.pill.done{background:var(--accent-soft);color:var(--accent)}.pill.run{background:var(--blue-soft);color:var(--blue)}
-.pill.wait{background:var(--amber-soft);color:var(--amber)}.pill.fail{background:var(--red-soft);color:var(--red)}
-.prep{grid-column:1/-1;border-top:1px dashed var(--line);margin-top:6px;padding-top:12px;display:grid;gap:12px}
-.seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}
-.seg button{border:none;border-radius:0;padding:7px 12px;background:none;font-weight:600}.seg button[aria-checked=true]{background:var(--accent);color:#fff}
-@media(prefers-color-scheme:dark){.seg button[aria-checked=true]{color:#0f1d16}}
-.row{display:flex;gap:16px;flex-wrap:wrap;align-items:center}.row label{font-size:13px;color:var(--muted);font-weight:600}
-/* Préparations : étapes */
-.items{display:grid;gap:12px}
-.steps{display:flex;gap:4px;margin:12px 0 6px;flex-wrap:wrap}
-.step{flex:1;min-width:84px}
-.step .bar{height:5px;border-radius:3px;background:var(--line)}
-.step.done .bar{background:var(--accent)}.step.now .bar{background:var(--blue);animation:pulse 1.4s ease-in-out infinite}
-.step.fail .bar{background:var(--red)}
-.step .lbl{font-size:12px;color:var(--muted);margin-top:5px}.step.now .lbl{color:var(--blue);font-weight:700}.step.fail .lbl{color:var(--red);font-weight:700}
-@keyframes pulse{50%{opacity:.45}}
-.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-.empty{padding:40px 10px;text-align:center;color:var(--muted)}
-/* Contrôles (relecture) */
-#review-detail{margin-top:16px}textarea{display:block;width:100%;font:inherit;padding:10px;margin:8px 0;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
-#review-detail input{width:100%;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
-pre{white-space:pre-wrap;overflow-wrap:anywhere}details p{white-space:pre-line}.warnings p{margin:4px 0}
-.error-text{color:var(--red)}
+  /* Mêmes jetons que l'Atelier English Fluency (interface.html) : l'onglet Discover en fait partie. */
+  :root {
+    --fond: #f4f5f7; --surface: #ffffff; --surface-2: #f0f2f5; --survol: #f7f8fa; --bord: #e3e6eb;
+    --texte: #161a22; --sourd: #5f6878; --discret: #8b93a1;
+    --accent: #e8553d; --accent-2: #f07a4e; --accent-doux: #fdeee9;
+    --ok: #16a067; --ok-doux: #e5f6ee; --attention: #b7791f; --attention-doux: #fdf4e3;
+    --erreur: #d33a3a; --erreur-doux: #fdeaea; --info: #2f6fde; --info-doux: #e8f0fd;
+    --ombre: 0 1px 2px rgba(16, 24, 40, .04), 0 2px 8px rgba(16, 24, 40, .04);
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; } [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; min-width: 1100px; display: grid; grid-template-rows: 52px auto 1fr; background: var(--fond); color: var(--texte);
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased;
+  }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  a { color: var(--info); text-decoration: none; }
+
+  /* ---------- barre d'application (identique à l'Atelier) ---------- */
+  .barre-app { display: flex; align-items: center; gap: 14px; padding: 0 20px; background: var(--surface); border-bottom: 1px solid var(--bord); }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 650; font-size: 14.5px; }
+  .logo .pastille-logo { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; font-size: 15px; }
+  .espaces { display: flex; gap: 2px; padding: 3px; background: var(--surface-2); border-radius: 10px; margin-left: 6px; }
+  .espaces a { padding: 5px 14px; border-radius: 8px; color: var(--sourd); font-weight: 600; font-size: 13px; }
+  .espaces a[aria-current="page"] { background: var(--surface); color: var(--texte); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+  .barre-app .espaceur { flex: 1; }
+
+  /* ---------- boutons (styles .btn de l'Atelier) ---------- */
+  button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 13px; border-radius: 9px;
+    border: 1px solid var(--bord); background: var(--surface); cursor: pointer; font-weight: 550; font-size: 13px; white-space: nowrap;
+    transition: background .12s, border-color .12s; }
+  button:hover:not(:disabled) { background: var(--survol); border-color: #d3d7de; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  button.primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); border-color: transparent; color: #fff; }
+  button.primary:hover:not(:disabled) { filter: brightness(1.06); background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+  button.danger { color: var(--erreur); } button.link { border-color: transparent; background: transparent; color: var(--sourd); padding: 4px 8px; }
+  input[type=search], input[type=text], input[type=url], input[type=number], select, textarea {
+    padding: 7px 11px; border: 1px solid var(--bord); border-radius: 9px; background: var(--surface); }
+  textarea { width: 100%; resize: vertical; line-height: 1.5; }
+  label.champ { display: grid; gap: 4px; font-size: 12px; color: var(--sourd); font-weight: 600; }
+
+  /* ---------- en-tête de la section : préparateur + onglets ---------- */
+  .tete { background: var(--surface); border-bottom: 1px solid var(--bord); padding: 14px 24px 0; }
+  .tete-ligne { display: flex; align-items: center; gap: 16px; }
+  .tete h1 { font-size: 18px; margin: 0; }
+  .tete .intro { color: var(--sourd); font-size: 13px; margin: 2px 0 0; }
+  #engine { margin-left: auto; display: flex; align-items: center; gap: 12px; padding: 8px 12px; border: 1px solid var(--bord); border-radius: 12px; background: var(--fond); max-width: 560px; }
+  #engine .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--discret); flex-shrink: 0; }
+  #engine.running .dot { background: var(--ok); box-shadow: 0 0 0 5px var(--ok-doux); }
+  #engine .state { font-weight: 650; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 300px; }
+  #engine .msg { color: var(--sourd); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 300px; }
+  #engine .actions { margin: 0; flex-shrink: 0; }
+  .tabs { display: flex; gap: 2px; margin-top: 12px; }
+  .tabs button { border: none; border-radius: 0; background: none; padding: 10px 14px; border-bottom: 2px solid transparent; color: var(--sourd); font-weight: 600; }
+  .tabs button:hover:not(:disabled) { background: var(--survol); }
+  .tabs button[aria-selected="true"] { color: var(--texte); border-bottom-color: var(--accent); }
+  .count { display: inline-block; min-width: 18px; padding: 0 6px; border-radius: 999px; background: var(--accent-doux); color: var(--accent); font-size: 11.5px; font-weight: 700; }
+
+  main { overflow: auto; padding: 20px 24px 60px; }
+  .contenu { max-width: 1120px; margin: 0 auto; }
+  #banner { margin-bottom: 14px; }
+  .card { background: var(--surface); border: 1px solid var(--bord); border-radius: 12px; padding: 14px 16px; box-shadow: var(--ombre); }
+  h2 { font-size: 15px; margin: 0 0 8px; } h3 { font-size: 14px; margin: 0 0 2px; }
+  p { margin: 4px 0; } .muted { color: var(--sourd); } .small { font-size: 12.5px; }
+
+  .alert { border-radius: 10px; padding: 10px 12px; display: flex; gap: 12px; align-items: flex-start; font-size: 13px; }
+  .alert.error { background: var(--erreur-doux); color: var(--erreur); } .alert.warn { background: var(--attention-doux); color: var(--attention); }
+  .alert.info { background: var(--info-doux); color: var(--info); } .alert.ok { background: var(--ok-doux); color: var(--ok); }
+  .alert strong { display: block; } .alert .grow { flex: 1; }
+
+  /* ---------- Podcasts ---------- */
+  .filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+  .filters input[type=search] { flex: 1; min-width: 220px; }
+  .episodes, .items { display: grid; gap: 10px; }
+  .episode { display: grid; grid-template-columns: 56px 1fr auto; gap: 14px; align-items: start; }
+  .episode img, .episode .ph { width: 56px; height: 56px; border-radius: 10px; object-fit: cover; background: var(--surface-2); }
+  .episode .show { font-size: 12px; color: var(--sourd); font-weight: 600; } .episode .title { font-weight: 600; margin: 1px 0 3px; }
+  .meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; font-size: 12.5px; color: var(--sourd); }
+  .pill { display: inline-flex; align-items: center; padding: 1px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 650; }
+  .pill.done { background: var(--ok-doux); color: var(--ok); } .pill.run { background: var(--info-doux); color: var(--info); }
+  .pill.wait { background: var(--attention-doux); color: var(--attention); } .pill.fail { background: var(--erreur-doux); color: var(--erreur); }
+  .pill.kind { background: var(--surface-2); color: var(--sourd); }
+  .prep { grid-column: 1 / -1; border-top: 1px dashed var(--bord); margin-top: 6px; padding-top: 12px; display: grid; gap: 12px; }
+  .seg { display: inline-flex; padding: 3px; gap: 2px; background: var(--surface-2); border-radius: 9px; }
+  .seg button { border: none; padding: 5px 11px; background: transparent; color: var(--sourd); border-radius: 7px; font-weight: 600; }
+  .seg button[aria-checked="true"] { background: var(--surface); color: var(--texte); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+  .row { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; } .row > label:first-child { font-size: 12px; color: var(--sourd); font-weight: 600; min-width: 74px; }
+
+  /* ---------- Préparations : étapes (à la manière des onglets d'étape de l'Atelier) ---------- */
+  .steps { display: flex; gap: 4px; margin: 12px 0 6px; }
+  .step { flex: 1; min-width: 0; }
+  .step .bar { height: 4px; border-radius: 3px; background: var(--surface-2); }
+  .step.done .bar { background: var(--ok); } .step.now .bar { background: linear-gradient(90deg, var(--accent), var(--accent-2)); animation: pulse 1.4s ease-in-out infinite; }
+  .step.fail .bar { background: var(--erreur); }
+  .step .lbl { font-size: 11.5px; color: var(--discret); margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .step.done .lbl { color: var(--ok); } .step.now .lbl { color: var(--accent); font-weight: 700; } .step.fail .lbl { color: var(--erreur); font-weight: 700; }
+  @keyframes pulse { 50% { opacity: .45; } }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .empty { padding: 40px 10px; text-align: center; color: var(--sourd); }
+
+  /* ---------- Importer ---------- */
+  .imports { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+  .imports .card { display: grid; gap: 12px; }
+  .imports .note { font-size: 12.5px; color: var(--sourd); }
+
+  /* ---------- Contrôles ---------- */
+  #review-detail { margin-top: 14px; display: grid; gap: 8px; }
+  #review-detail textarea { margin: 6px 0; background: var(--fond); }
+  #review-detail input { width: 100%; padding: 6px 10px; border: 1px solid var(--bord); border-radius: 8px; background: var(--fond); }
+  details p { white-space: pre-line; } .warnings p { margin: 3px 0; } .error-text { color: var(--erreur); }
 </style></head><body>
-<header class="top"><strong>Atelier</strong><nav aria-label="Sections"><a href="/">Contenus</a><a href="/discover" aria-current="page">Discover</a><a href="/vocabulaire">Vocabulaire</a></nav></header>
-<main>
-  <h1>Discover</h1>
-  <p class="muted">Choisis un épisode, l’Atelier le transcrit, l’adapte à ton niveau, crée l’audio anglais et le publie automatiquement dans l’app.</p>
+<header class="barre-app">
+  <div class="logo"><span class="pastille-logo">🎓</span>Atelier</div>
+  <nav class="espaces" aria-label="Espaces de l’Atelier">
+    <a href="/">English Fluency</a>
+    <a href="/discover" aria-current="page">Discover</a>
+  </nav>
+  <span class="espaceur"></span>
+  <a class="lien-vocab" href="/vocabulaire"><button type="button">◫ Réviser les 4 000 mots</button></a>
+</header>
 
-  <section id="engine" class="card" aria-live="polite">
-    <span class="dot" aria-hidden="true"></span>
-    <div><div class="state" id="engine-state">Préparateur…</div><div class="msg" id="engine-msg"></div></div>
-    <div class="actions" style="margin:0"><button id="start" class="primary">Démarrer</button><button id="stop">Arrêter</button></div>
-  </section>
-  <div id="banner" role="alert"></div>
-
+<section class="tete">
+  <div class="tete-ligne">
+    <div>
+      <h1>Discover</h1>
+      <p class="intro">Podcasts, vidéos YouTube, textes et notes My Mind : transcrits, adaptés à ton niveau, mis en audio et publiés automatiquement dans l’app.</p>
+    </div>
+    <div id="engine" aria-live="polite">
+      <span class="dot" aria-hidden="true"></span>
+      <div style="min-width:0"><div class="state" id="engine-state">Préparateur…</div><div class="msg" id="engine-msg"></div></div>
+      <div class="actions"><button id="start" class="primary">Démarrer</button><button id="stop">Arrêter</button></div>
+    </div>
+  </div>
   <div class="tabs" role="tablist">
     <button role="tab" id="tab-podcasts" aria-selected="true" aria-controls="panel-podcasts">Podcasts</button>
-    <button role="tab" id="tab-queue" aria-selected="false" aria-controls="panel-queue">Préparations<span class="count" id="count-queue" hidden></span></button>
-    <button role="tab" id="tab-checks" aria-selected="false" aria-controls="panel-checks">Contrôles<span class="count" id="count-checks" hidden></span></button>
+    <button role="tab" id="tab-import" aria-selected="false" aria-controls="panel-import">Importer · YouTube & texte</button>
+    <button role="tab" id="tab-queue" aria-selected="false" aria-controls="panel-queue">Préparations <span class="count" id="count-queue" hidden></span></button>
+    <button role="tab" id="tab-checks" aria-selected="false" aria-controls="panel-checks">Contrôles <span class="count" id="count-checks" hidden></span></button>
   </div>
+</section>
+
+<main><div class="contenu">
+  <div id="banner" role="alert"></div>
 
   <section id="panel-podcasts" role="tabpanel" aria-labelledby="tab-podcasts">
     <div class="filters">
@@ -98,7 +159,29 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere}details p{white-space:pre-line}.
     <div style="text-align:center;margin-top:14px"><button id="more" hidden>Plus d’épisodes</button></div>
   </section>
 
+  <section id="panel-import" role="tabpanel" aria-labelledby="tab-import" hidden>
+    <div class="imports">
+      <form class="card" id="form-youtube">
+        <h2>▶ Vidéo YouTube</h2>
+        <label class="champ">Lien de la vidéo<input type="url" id="yt-url" placeholder="https://www.youtube.com/watch?v=…" required></label>
+        <div id="yt-options"></div>
+        <p class="note">L’Atelier télécharge l’audio, utilise les sous-titres manuels de la vidéo ou MacWhisper, puis prépare et publie la version choisie.</p>
+        <div class="actions"><button class="primary" type="submit">Préparer cette vidéo</button></div>
+      </form>
+      <form class="card" id="form-text">
+        <h2>¶ Texte</h2>
+        <label class="champ">Titre<input type="text" id="tx-title" maxlength="200" placeholder="Titre du texte"></label>
+        <label class="champ">Texte (collé ou fichier .txt / .md)<textarea id="tx-text" rows="9" placeholder="Colle ici un article, un discours, une note…"></textarea></label>
+        <input type="file" id="tx-file" accept=".txt,.md,text/plain,text/markdown" aria-label="Fichier texte">
+        <div id="tx-options"></div>
+        <p class="note">Le texte est aussi rangé dans My Mind (étiquette « importé depuis l’Atelier »), avec sa version anglaise dès qu’elle est publiée.</p>
+        <div class="actions"><button class="primary" type="submit">Préparer ce texte</button></div>
+      </form>
+    </div>
+  </section>
+
   <section id="panel-queue" role="tabpanel" aria-labelledby="tab-queue" hidden>
+    <p class="muted small" style="margin-bottom:12px">Tout ce qui est en préparation : épisodes, vidéos, textes et notes envoyées depuis My Mind dans l’app.</p>
     <div class="items" id="items"><p class="empty">Chargement des préparations…</p></div>
   </section>
 
@@ -107,5 +190,5 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere}details p{white-space:pre-line}.
     <div id="reviews"></div>
     <section id="review-detail" class="card" hidden></section>
   </section>
-</main>
+</div></main>
 <script type="module" src="/discover_queue.js"></script></body></html>

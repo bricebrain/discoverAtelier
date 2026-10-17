@@ -56,6 +56,10 @@
     background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; font-size: 15px;
   }
   .barre-app .espaceur { flex: 1; }
+  /* Espaces de l'Atelier : English Fluency et Discover (même barre sur les deux pages) */
+  .espaces { display: flex; gap: 2px; padding: 3px; background: var(--surface-2); border-radius: 10px; margin-left: 6px; }
+  .espaces a { padding: 5px 14px; border-radius: 8px; color: var(--sourd); font-weight: 600; font-size: 13px; }
+  .espaces a[aria-current="page"] { background: var(--surface); color: var(--texte); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
   .stats { color: var(--sourd); font-size: 12.5px; }
 
   /* ---------- boutons ---------- */
@@ -336,10 +340,13 @@
 <body>
 
 <header class="barre-app">
-  <div class="logo"><span class="pastille-logo">🎓</span>Atelier English Fluency</div>
+  <div class="logo"><span class="pastille-logo">🎓</span>Atelier</div>
+  <nav class="espaces" aria-label="Espaces de l’Atelier">
+    <a href="/" aria-current="page">English Fluency</a>
+    <a href="/discover">Discover</a>
+  </nav>
   <span class="espaceur"></span>
   <span class="stats" id="stats"></span>
-  <a class="btn" href="/discover">À préparer · Discover</a>
   <button class="btn" data-action="ouvrir-texte">＋ Ajouter un texte</button>
   <button class="btn primaire" data-action="ouvrir-ajout">＋ Ajouter des vidéos <kbd>N</kbd></button>
 </header>
