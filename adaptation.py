@@ -86,16 +86,18 @@ Use the requested CEFR level; original means unsimplified English. Stay within 2
 If the target would harm understanding, set tooShortForSubject and recommend a longer duration; still provide the best complete script.
 Use natural French in fr. Use numerical digits for factual numbers. No paragraph may cite an ID absent from the extraction.
 Do not mention podcast housekeeping or describe the editing process. Return JSON only.''' + donnees({'plan': plan, 'options': spec, 'extraction': batch, 'corrections': feedback if (feedback and (not feedback.get('sourceIds') or substantive.intersection(feedback['sourceIds']))) else None})
+        if not target:
+            prompt += donnees({'originalPassages': groups[index]})
         paragraph_count = max(3, round((target or expected) / 120))
         trusted = f"\nTASK SETTINGS: coverage={options['coverage']}, CEFR={options['level']}, style={options['style']}.\n"
         if target:
             trusted += f'Write {paragraph_count} paragraphs and {target} English words in total (minimum {round(.8*target)}, maximum {round(1.2*target)}). Each paragraph needs about {round(target/paragraph_count)} ENGLISH words, plus its complete French translation. Use substantive source details and explanations, never filler. This is a length requirement, not a maximum.\n'
         if not target:
-            trusted += f'Full retelling: write about {expected} English words in {paragraph_count} paragraphs (minimum {round(.7*expected)} words). Retain minor material details, every example, chronology, qualifications and outcomes. Do not compress events into a synopsis or pad with invented explanations.\n'
+            trusted += f'Full retelling: write about {expected} English words in {paragraph_count} paragraphs (minimum {round(.7*expected)} words). Retell the originalPassages using the extraction as a checklist. Retain minor material details, every example, chronology, qualifications and outcomes. Do not compress events into a synopsis. Never add generic commentary, emotional description, future events, character judgments or invented explanations to meet the length. Restore actual source details instead.\n'
         if options['level'] in ('A2','B1'):
             trusted += 'Use short, simple sentences and common vocabulary. Explain necessary technical terms in plain language.\n'
         if options['style']=='dialogue':
-            trusted += 'Alternate Host and Guest paragraphs; both roles must speak. No invented facts, opinions or fictional interviewees.\n'
+            trusted += 'Write actual spoken turns in first person, alternating Host and Guest paragraphs; both roles must speak. Use natural questions and answers grounded in the source. Do not narrate the interview in third person or write framing such as the guest explains. Retain real speaker identities only when established by the source; do not invent an expert, guest biography, opinion or personal experience.\n'
         prompt = trusted + prompt
         allowed = {r for f in batch['items'] for r in f['sourceSegments']}
         def validate_script(obj):
@@ -168,7 +170,7 @@ def juger_script(client, script, sources, options, facts, frequent=None):
 Report unsupported factual claims, omitted key points for this coverage, lost uncertainty/disagreement, and promotional material remaining. Also verify that each fr paragraph faithfully translates its English text; report any French contradiction, added claim or missing qualification as unsupportedClaims.
 Language warnings alone do not prevent ok. A full edition must preserve every substantive source point. A condensed edition may omit minor examples.
 For full coverage, check each numbered extracted fact separately in factChecks. presentInScript is true only when its actual meaning is conveyed in the English script, not just listed as a source ID.
-Use rejected for factual contradiction, invented claims, or advertisements; review for ambiguity or a missing important nuance. Be specific and quote paragraph numbers.
+Use rejected for factual contradiction, invented claims, or advertisements; review for ambiguity or a missing important nuance. Be specific and quote paragraph numbers. Never promote a possibility or suggestion in the source into an event that actually happened. Character judgments, emotions, invented endings or claims about the rest of a person’s life must be explicitly supported by the cited original passages; otherwise report unsupportedClaims. Do not use outside knowledge to fill gaps.
 ''' + donnees({'options': options, 'script': script, 'sources': sources, 'extractedFacts': facts}), FULL_JUDGE if options['coverage']=='full' else JUDGE, validate_judge, juge=True)
     evaluation['judge'] = judge
     if options['coverage'] == 'full':
@@ -186,7 +188,7 @@ Use rejected for factual contradiction, invented claims, or advertisements; revi
         source_words = sum(len(mots(s['text'])) for s in sources if s['id'] in used)
         ratio = evaluation['wordCount'] / max(1, source_words)
         evaluation['fullCoverageWordRatio'] = round(ratio, 3)
-        if ratio < .65:
+        if ratio < .85:
             if evaluation['verdict'] != 'rejected':
                 evaluation['verdict'] = 'review'
             evaluation['coverageWarning'] = 'Intégral très raccourci : vérifier que tous les détails sont conservés.'

@@ -52,6 +52,18 @@ class EvaluationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'aucun contenu substantiel'):
             adaptation.generer(Client(), [{'id': 's1', 'text': 'Subscribe now.'}], OPTIONS)
 
+    def test_substantial_shortening_of_full_edition_needs_review_even_if_judge_accepts(self):
+        sources = [{'id': 's1', 'text': 'word ' * 100}]
+        script = copy.deepcopy(SCRIPT)
+        script['segments'][0]['text'] = 'word ' * 80
+        client = mock.Mock()
+        client.demander.return_value = {'verdict': 'ok', 'unsupportedClaims': [], 'omittedKeyPoints': [],
+            'lostNuances': [], 'promotionsRemaining': [], 'languageWarnings': [],
+            'factChecks': [{'factIndex': 0, 'presentInScript': True, 'reason': 'Present.'}]}
+        e = adaptation.juger_script(client, script, sources, OPTIONS, [{'text': 'A fact.', 'sourceSegments': ['s1']}])
+        self.assertEqual(e['verdict'], 'review')
+        self.assertIn('coverageWarning', e)
+
     def test_blocks_keep_every_segment_including_middle(self):
         sources = [{'id': str(i), 'text': 'word ' * 500} for i in range(13)]
         blocks = adaptation.blocs(sources)
