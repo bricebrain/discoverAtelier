@@ -804,7 +804,7 @@ function panneauEtape(d, i) {
           </dl>
           ${blocHorodatage(d)}</div>
         ${d.audio.original ? `<div class="carte">${lecteur(d.slug, "original",
-          src === "fr" ? "Audio original <b>français</b> — conservé, jamais publié" : "Audio original <b>anglais</b> — c'est lui qui sera publié")}</div>` : ""}
+          src === "fr" ? "Audio original <b>français</b> — conservé ; publication dans Discover uniquement" : "Audio original <b>anglais</b> — c'est lui qui sera publié")}</div>` : ""}
       </div>
       <div class="col">
         <div class="carte etiree"><div class="tete-carte"><h3>${e.sourceTexte ? "Texte" : "Transcription"} ${src ? src.toUpperCase() : ""}</h3><span class="compteur">${d.segments.length} segments</span></div>
@@ -943,8 +943,10 @@ function panneauEtape(d, i) {
     ${!e.ok && !enCours && e.raisons.length ? `<div class="encart attention"><b>Encore à faire</b><ul>${e.raisons.map((r) => `<li>${echapper(r)}</li>`).join("")}</ul></div>` : ""}
     <div class="carte">
       <label class="interrupteur" title="Publie dès que le dernier prérequis est validé">
-        <input type="checkbox" data-action="auto" data-slug="${s}" ${d.meta.autoPublish ? "checked" : ""}> Publication automatique</label>
+        <input type="checkbox" data-action="auto" data-slug="${s}" ${d.meta.autoPublish ? "checked" : ""}> Publication automatique vers English Fluency</label>
       ${bouton ? `<div class="actions" style="margin-top:14px">${bouton}</div>` : ""}
+      ${d.meta.sourceType === "youtube" && textesOk && !enCours ? `<div class="actions" style="margin-top:14px"><button class="btn primaire" data-action="publier-discover" data-slug="${s}">Publier dans Discover</button></div><p>Original et traduction fidèle, sans analyse pédagogique requise.</p>` : ""}
+      ${d.meta.discoverPublication ? `<div class="encart ok">Discover · publié le ${new Date(d.meta.discoverPublication.publishedAt).toLocaleString("fr-FR")}</div>` : ""}
     </div>`;
   const payload = etat.payloads[cle(d.slug, e.revision)];
   const droite = e.ok
@@ -1160,8 +1162,8 @@ document.addEventListener("click", async (ev) => {
   else if (action === "tts") lancerTts(slug);
   else if (action === "horodater") horodater(slug);
   else if (action === "lire-segment") lireSegment(cible);
-  else if (action === "publier") {
-    const r = await api("/api/importer", { slug });
+  else if (action === "publier" || action === "publier-discover") {
+    const r = await api("/api/importer", { slug, cible: action === "publier-discover" ? "discover" : "englishfluency" });
     if (!r.ok) toast(r.erreur, "erreur");
     else { toast("Publication lancée"); etat.onglet[slug] = 4; }
     rafraichir();

@@ -12,3 +12,5 @@ config_import.json
 __pycache__/
 *.pyc
 .DS_Store
+
+config_discover.json

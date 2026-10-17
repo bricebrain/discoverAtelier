@@ -1,0 +1,4 @@
+{
+  "workerUrl": "https://discover.<compte>.workers.dev",
+  "atelierToken": "<jeton ATELIER_TOKEN de 32 caractères minimum>"
+}

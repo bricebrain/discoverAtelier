@@ -39,6 +39,7 @@ except ImportError:
 import transcription  # sous-titres YouTube + MacWhisper (même dossier)
 import import_texte   # textes collés, .txt / .md, articles, productions personnelles
 import bundles        # fichiers des bundles + connexion Worker (même dossier)
+import discover_cible  # publication Discover indépendante
 import pipeline       # logique métier bilingue : prompts, validation, canPublish
 
 
@@ -360,7 +361,7 @@ def import_en_cours(slug):
         return (IMPORTS.get(slug) or {}).get("statut") == "en cours"
 
 
-def lancer_import(slug):
+def lancer_import(slug, cible="englishfluency"):
     """Lance la publication d'un bundle dans un thread, seulement si
     etat_publication(...).ok. Renvoie (ok, erreur)."""
     with VERRO_IMPORTS:
@@ -368,15 +369,21 @@ def lancer_import(slug):
         if etat and etat["statut"] == "en cours":
             return False, "un import est déjà en cours pour ce bundle"
         preparation = pipeline.etat_publication(slug)
-        if not preparation["ok"]:
+        if cible not in ("englishfluency", "discover"):
+            return False, "cible inconnue"
+        if cible == "englishfluency" and not preparation["ok"]:
             return False, ("bundle non publiable : "
                            + " ; ".join(preparation["raisons"]))
         IMPORTS[slug] = {"statut": "en cours", "message": ""}
 
     def faire():
         try:
-            ok, message = pipeline.publier(
-                slug, signal=lambda etape: _maj_import(slug, message=etape))
+            signal = lambda etape: _maj_import(slug, message=etape)
+            if cible == "discover":
+                discover_cible.publier(slug, signal=signal)
+                ok, message = True, "Publié dans Discover"
+            else:
+                ok, message = pipeline.publier(slug, signal=signal)
         except Exception as e:
             ok, message = False, f"échec de publication : {e}"
         _maj_import(slug, statut="ok" if ok else "echec", message=message)
@@ -842,7 +849,7 @@ class Gestionnaire(BaseHTTPRequestHandler):
             else:
                 self._envoyer(200, {"ok": True, "payload": payload})
         elif self.path == "/api/importer":
-            ok, erreur = lancer_import(slug)
+            ok, erreur = lancer_import(slug, str(donnees.get("cible", "englishfluency")))
             if not ok:
                 self._envoyer(409, {"erreur": erreur})
             else:
