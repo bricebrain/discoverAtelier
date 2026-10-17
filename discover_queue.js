@@ -103,13 +103,17 @@ function renderEngine(state) {
     : current ? `Prépare : ${current.title || 'épisode'}` : 'Préparateur prêt';
   $('engine-msg').textContent = current ? (STAGE_TEXT[state.stage] || state.message || '') : (state.message || (state.running
     ? 'En attente : choisis un épisode dans l’onglet Podcasts, ou depuis l’app.' : 'Démarre-le pour traiter les préparations sur ce Mac.'));
+  // Gemini bloqué (quota, panne…) : l'Atelier prépare avec OpenAI en attendant.
+  const ai = $('engine-ai');
+  ai.hidden = !state.ai;
+  ai.textContent = state.ai || '';
   $('start').disabled = state.running;
   $('stop').disabled = !state.running;
   // Une erreur locale (Gemini, Kokoro, MacWhisper, réseau) remonte ici avec son détail.
   if (state.message && state.message !== lastEngineMessage && /interrompue|impossible|Quota|Connexion/i.test(state.message)) {
     lastEngineMessage = state.message;
     const quota = /Quota/i.test(state.message);
-    banner(quota ? 'warn' : 'error', quota ? 'Quota Gemini atteint' : 'La dernière préparation s’est interrompue', state.message,
+    banner(quota ? 'warn' : 'error', quota ? 'Quota IA atteint (Gemini et OpenAI)' : 'La dernière préparation s’est interrompue', state.message,
       quota ? null : { label: 'Voir les préparations', run: () => selectTab('queue') });
   }
 }

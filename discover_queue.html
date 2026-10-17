@@ -71,6 +71,7 @@
 
   .alert { border-radius: 10px; padding: 10px 12px; display: flex; gap: 12px; align-items: flex-start; font-size: 13px; }
   .alert.error { background: var(--erreur-doux); color: var(--erreur); } .alert.warn { background: var(--attention-doux); color: var(--attention); }
+  .ai-repli { color: var(--attention); font-weight: 600; }
   .alert.info { background: var(--info-doux); color: var(--info); } .alert.ok { background: var(--ok-doux); color: var(--ok); }
   .alert strong { display: block; } .alert .grow { flex: 1; }
 
@@ -133,7 +134,7 @@
     </div>
     <div id="engine" aria-live="polite">
       <span class="dot" aria-hidden="true"></span>
-      <div style="min-width:0"><div class="state" id="engine-state">Préparateur…</div><div class="msg" id="engine-msg"></div></div>
+      <div style="min-width:0"><div class="state" id="engine-state">Préparateur…</div><div class="msg" id="engine-msg"></div><div class="msg ai-repli" id="engine-ai" hidden></div></div>
       <div class="actions"><button id="start" class="primary">Démarrer</button><button id="stop">Arrêter</button></div>
     </div>
   </div>

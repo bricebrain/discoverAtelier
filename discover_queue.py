@@ -10,7 +10,7 @@ import discover_cible
 import discover_source
 import discover_preparation
 import discover_review
-from discover_ai import QuotaAtteint, configuration as configuration_ia
+from discover_ai import QuotaAtteint, configuration as configuration_ia, etat_repli
 import pipeline
 
 
@@ -103,7 +103,7 @@ class FileDiscover:
         with self.verrou:
             return {'running': bool(self.thread and self.thread.is_alive()), 'stage': self.etape,
                     'item': ({k: v for k, v in self.item.items() if k not in ('leaseToken', 'source')}
-                             if self.item else None), 'message': self.message}
+                             if self.item else None), 'message': self.message, 'ai': etat_repli()}
 
     def liste(self):
         config = self.config or discover_cible.charger_config()
@@ -187,11 +187,11 @@ class FileDiscover:
                     continue
                 try:
                     self._traiter()
-                except QuotaAtteint:
+                except QuotaAtteint as erreur:
                     self._appel('/' + self.item['id'] + '/release', {'leaseToken': self.item['leaseToken']})
                     self.item = None
                     self._sauver()
-                    self.message = 'Quota Gemini atteint. Reprise dans une heure ; étapes conservées.'
+                    self.message = f'Quota atteint ({erreur}). Reprise dans une heure ; étapes conservées.'[:400]
                     self.stop.wait(3600)
                     continue
                 except BailPerdu:
@@ -202,7 +202,7 @@ class FileDiscover:
                 except Exception as erreur:
                     # Aucune URL signée, contenu ni sortie de commande dans les erreurs distantes.
                     self._appel('/' + self.item['id'] + '/fail',
-                                {'leaseToken': self.item['leaseToken'], 'error': 'Préparation impossible. Vérifier la source, Gemini et Kokoro dans l’Atelier.', 'retryable': True})
+                                {'leaseToken': self.item['leaseToken'], 'error': 'Préparation impossible. Vérifier la source, Gemini / OpenAI et Kokoro dans l’Atelier.', 'retryable': True})
                     self.message = 'Préparation interrompue : ' + str(erreur)[:300]
                     if self.stop.wait(5):
                         break
