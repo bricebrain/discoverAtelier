@@ -38,11 +38,11 @@ def chemin_valide(path):
         and all(p not in ('.', '..') for p in path.split('/')))
 
 
-def url_valide(raw):
+def url_valide(raw, allow_http=False):
     try:
         u = urlsplit(raw.strip())
         host = (u.hostname or '').lower().rstrip('.')
-        if (len(raw) > 2048 or u.scheme != 'https' or u.username or u.password
+        if (len(raw) > 2048 or (u.scheme != 'https' and not (allow_http and u.scheme == 'http')) or u.username or u.password
                 or (u.port and u.port != 443) or not host or '.' not in host
                 or host == 'localhost' or host.endswith((
                     '.local', '.internal', '.lan', '.localhost', '.home.arpa', '.intranet', '.corp'))):
@@ -73,7 +73,7 @@ def valider_manifeste(m, context=None):
     if len(set(keys)) != len(keys):
         refuser('duplicate_variant')
     if c.get('sourceUrl'):
-        url_valide(c['sourceUrl'])
+        url_valide(c['sourceUrl'], c['sourceType'] == 'podcast')
     ref = c.get('sourceRef') or ''
     if ((c['sourceType'] == 'podcast' and not re.fullmatch(r'episode:[0-9a-f]{20}', ref))
             or (c['sourceType'] == 'reflection' and not re.fullmatch(r'reflection:[0-9a-f-]{36}', ref))
@@ -116,7 +116,7 @@ def valider_manifeste(m, context=None):
                 refuser('invalid_files')
             used.add(path)
         if audio.get('source') == 'publisher_stream':
-            url_valide(audio['url'])
+            url_valide(audio['url'], c['sourceType'] == 'podcast')
             if c['sourceType'] != 'podcast' or v['kind'] != 'source' or audio['origin'] != 'original':
                 refuser('invalid_stream')
     if any(not chemin_valide(p) or p not in used for p in files):

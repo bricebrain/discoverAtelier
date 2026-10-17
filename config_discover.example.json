@@ -1,4 +1,7 @@
 {
   "workerUrl": "https://discover.<compte>.workers.dev",
-  "atelierToken": "<jeton ATELIER_TOKEN de 32 caractères minimum>"
+  "atelierToken": "<jeton ATELIER_TOKEN de 32 caractères minimum>",
+  "geminiApiKey": "",
+  "geminiModel": "gemini-3.1-flash-lite",
+  "geminiJudgeModel": "gemini-3.1-flash-lite"
 }

@@ -135,7 +135,7 @@ class QueueTests(unittest.TestCase):
     def test_source_checkpoint_releases_without_claiming_done(self):
         with tempfile.TemporaryDirectory() as folder:
             request = mock.Mock(return_value={})
-            worker = discover_queue.FileDiscover(folder, requete=request, preparer=mock.Mock())
+            worker = discover_queue.FileDiscover(folder, requete=request, preparer=mock.Mock(), source_only=True)
             worker.item, worker.config = dict(ITEM), {}
             worker._traiter()
             last = request.call_args_list[-1]

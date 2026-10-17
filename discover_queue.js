@@ -1,5 +1,6 @@
+import {reviews} from './discover_review.js';
 const $ = (id) => document.getElementById(id);
-const stages = {download:'Téléchargement',normalize:'Préparation audio',transcribe:'Transcription',source_ready:'Source prête · adaptation à venir',translate:'Traduction',adapt:'Adaptation',tts:'Création audio',publish:'Publication'};
+const stages = {download:'Téléchargement',normalize:'Préparation audio',transcribe:'Transcription',source_ready:'Source prête',plan:'Plan',extract:'Extraction des sources',evaluate:'Contrôle de fidélité',review:'À relire dans l’Atelier',translate:'Traduction',adapt:'Adaptation',tts:'Création audio',publish:'Publication'};
 const coverages = {full:'Intégral',condensed:'Condensé',essentials:'L’essentiel'};
 let busy = false;
 async function api(path, method = 'GET') {
@@ -29,7 +30,7 @@ async function refresh() {
       card.append(text('h2',item.title));
       const options = item.options;
       card.append(text('p',`${coverages[options.coverage]} · ${options.level}${options.targetMinutes ? ` · ${options.targetMinutes} min` : ''}`,'small muted'));
-      const label = item.status==='pending' ? (item.stage==='source_ready' ? stages.source_ready : 'En file') : item.status==='leased' ? (stages[item.stage] || 'En préparation') : item.status==='done' ? 'Prêt dans Discover' : 'Échec';
+      const label = item.status==='pending' ? (stages[item.stage] || 'En file') : item.status==='leased' ? (stages[item.stage] || 'En préparation') : item.status==='done' ? 'Prêt dans Discover' : 'Échec';
       card.append(text('p',label,'status'));
       if (item.status==='leased') card.append(text('p',`Tentative ${item.attempts}/${item.maxAttempts}`,'small muted'));
       if (item.error && item.status==='failed') card.append(text('p',item.error,'error'));
@@ -45,6 +46,8 @@ for (const action of ['start','stop']) $(''+action).addEventListener('click',asy
   $(action).disabled = true;
   try { await api(action,'POST'); await refresh(); } catch(error) { $('error').textContent=error.message; }
 });
-$('refresh').addEventListener('click',refresh);
+$('refresh').addEventListener('click',()=>{void refresh();void reviews();});
 void refresh();
+void reviews();
 setInterval(refresh,5000);
+setInterval(reviews,15000);

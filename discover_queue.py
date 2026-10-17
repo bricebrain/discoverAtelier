@@ -8,6 +8,9 @@ from pathlib import Path
 import bundles
 import discover_cible
 import discover_source
+import discover_preparation
+import discover_review
+from discover_ai import QuotaAtteint, configuration as configuration_ia
 import pipeline
 
 
@@ -16,10 +19,12 @@ class BailPerdu(RuntimeError):
 
 
 class FileDiscover:
-    def __init__(self, dossier=None, requete=None, preparer=None):
+    def __init__(self, dossier=None, requete=None, preparer=None, transformer=None, source_only=False):
         self.dossier = Path(dossier or Path(bundles.DOSSIER_BUNDLES) / '.discover-queue')
         self.requete = requete or discover_cible.requete
         self.preparer = preparer or discover_source.preparer
+        self.transformer = transformer or discover_preparation.preparer
+        self.source_only = source_only
         self.verrou = threading.RLock()
         self.stop = threading.Event()
         self.perdu = threading.Event()
@@ -72,6 +77,8 @@ class FileDiscover:
             if self.thread and self.thread.is_alive():
                 return
             self.config = discover_cible.charger_config()
+            if not self.source_only:
+                configuration_ia()
             self.dossier.mkdir(parents=True, exist_ok=True)
             lockfile = (self.dossier / 'instance.lock').open('a')
             try:
@@ -118,16 +125,29 @@ class FileDiscover:
             if not re.fullmatch(r'[0-9a-f]{20}', self.item['ref']):
                 raise ValueError('Identifiant source invalide.')
             resultat = self.preparer(self.item, dossier, self._etape, self.verifier)
-            self._etape('source_ready')
-            # Aucun heartbeat ne doit arriver après la restitution du bail.
+            if self.source_only:
+                self._etape('source_ready')
+                termine.set()
+                thread.join()
+                self.verifier()
+                self._appel('/' + self.item['id'] + '/release',
+                            {'leaseToken': self.item['leaseToken'], 'sourceReady': True})
+                self.message = 'Source importée et transcrite.'
+            else:
+                self.transformer(self.item, resultat, dossier, self._etape, self.verifier, self.config)
+                self.message = 'Version anglaise publiée dans Discover.'
+                termine.set()
+                thread.join()
+                # Un signal arrivé juste après le commit voit légitimement une demande déjà terminée.
+                self.perdu.clear()
+        except discover_review.RelectureRequise:
+            self._etape('review')
             termine.set()
             thread.join()
             self.verifier()
-            self._appel('/' + self.item['id'] + '/release',
-                        {'leaseToken': self.item['leaseToken'], 'sourceReady': True})
-            self.message = 'Source importée et transcrite. En attente de la génération de la version adaptée.'
-            if isinstance(resultat, dict) and resultat.get('speakersDetected') is False:
-                self.message += ' Le modèle MacWhisper installé ne détecte pas les intervenants.'
+            self._appel('/' + self.item['id'] + '/release', {'leaseToken': self.item['leaseToken'], 'stage': 'review'})
+            self.message = 'Version à relire. Ouvrir la relecture avant de publier.'
+
         finally:
             termine.set()
             thread.join()
@@ -144,7 +164,13 @@ class FileDiscover:
                     self._sauver()
             while not self.stop.is_set():
                 if self.item is None:
-                    self.item = self._appel('/lease', {'owner': self.owner, 'sourceOnly': True})['item']
+                    action_id, action_path = discover_review.suivante(self.dossier) if not self.source_only else (None, None)
+                    body = {'owner': self.owner, 'sourceOnly': self.source_only}
+                    if action_id:
+                        body.update(itemId=action_id, includeReview=True)
+                    self.item = self._appel('/lease', body)['item']
+                    if action_path and not self.item:
+                        action_path.unlink(missing_ok=True)
                     self.etape = 'download'
                     self._sauver()
                 if not self.item:
@@ -155,6 +181,13 @@ class FileDiscover:
                     continue
                 try:
                     self._traiter()
+                except QuotaAtteint:
+                    self._appel('/' + self.item['id'] + '/release', {'leaseToken': self.item['leaseToken']})
+                    self.item = None
+                    self._sauver()
+                    self.message = 'Quota Gemini atteint. Reprise dans une heure ; étapes conservées.'
+                    self.stop.wait(3600)
+                    continue
                 except BailPerdu:
                     self.message = 'Préparation interrompue. Le Worker attribuera un nouveau bail.'
                     if self.stop.is_set() and not self.perdu.is_set():
@@ -163,8 +196,8 @@ class FileDiscover:
                 except Exception as erreur:
                     # Aucune URL signée, contenu ni sortie de commande dans les erreurs distantes.
                     self._appel('/' + self.item['id'] + '/fail',
-                                {'leaseToken': self.item['leaseToken'], 'error': 'Import ou transcription impossible. Vérifier ffmpeg, MacWhisper et le flux dans l’Atelier.', 'retryable': True})
-                    self.message = 'Import interrompu : ' + str(erreur)[:300]
+                                {'leaseToken': self.item['leaseToken'], 'error': 'Préparation impossible. Vérifier la source, Gemini et Kokoro dans l’Atelier.', 'retryable': True})
+                    self.message = 'Préparation interrompue : ' + str(erreur)[:300]
                     if self.stop.wait(5):
                         break
                 self.item = None
