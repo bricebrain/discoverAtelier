@@ -39,7 +39,6 @@ except ImportError:
 import transcription  # sous-titres YouTube + MacWhisper (même dossier)
 import import_texte   # textes collés, .txt / .md, articles, productions personnelles
 import bundles        # fichiers des bundles + connexion Worker (même dossier)
-import idees          # idées de contenus : recherche YouTube via le Worker
 import pipeline       # logique métier bilingue : prompts, validation, canPublish
 
 
@@ -686,25 +685,6 @@ def detail_bundle(slug):
     }
 
 
-def chercher_idees(parametres):
-    """Recherche YouTube (via le Worker) + présence dans l'atelier.
-    Renvoie (code HTTP, corps)."""
-    try:
-        resultats, depuis_cache = idees.rechercher(
-            parametres.get("q", ""), parametres.get("langue", "en"),
-            parametres.get("duree", "moyenne"))
-    except ValueError as e:
-        return 400, {"erreur": str(e)}
-    except RuntimeError as e:
-        return 502, {"erreur": f"recherche impossible : {e}"}
-    biblio = [(b["meta"] or {}).get("sourceUrl")
-              for b in bundles.scanner_bundles()]
-    prepa = [j["url"] for j in JOBS.instantane()
-             if j["statut"] not in ("failed", "doublon")]
-    return 200, {"ok": True, "cache": depuis_cache,
-                 "resultats": idees.marquer_presence(resultats, biblio, prepa)}
-
-
 # ---------------------------------------------------------------------------
 # Serveur web
 # ---------------------------------------------------------------------------
@@ -803,8 +783,6 @@ class Gestionnaire(BaseHTTPRequestHandler):
                                 "horodatages": instantane_horodatages()})
         elif url.path == "/api/bundles":
             self._envoyer(200, {"bundles": etat_atelier()})
-        elif url.path == "/api/idees":
-            self._envoyer(*chercher_idees(parametres))
         else:
             self._envoyer(404, {"erreur": "introuvable"})
 

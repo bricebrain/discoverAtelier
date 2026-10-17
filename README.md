@@ -33,14 +33,6 @@ tout seul), ou dans le Terminal :
 python3 convertisseur_web.py
 ```
 
-### Idées de contenus
-
-Le bouton **💡 Idées** (raccourci `I`) cherche des vidéos YouTube depuis
-l'atelier, via le Worker (`/youtube/search` puis `/youtube/videos`) :
-thèmes rapides, filtres langue et durée, ajout en un clic (niveau B1).
-Les vidéos déjà dans la bibliothèque ou en préparation sont signalées.
-Une recherche coûte 100 unités de quota YouTube : les recherches
-identiques sont mémorisées une heure.
 
 ### Parcours
 
