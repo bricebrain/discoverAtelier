@@ -202,7 +202,7 @@ class FileDiscover:
                 except Exception as erreur:
                     # Aucune URL signée, contenu ni sortie de commande dans les erreurs distantes.
                     self._appel('/' + self.item['id'] + '/fail',
-                                {'leaseToken': self.item['leaseToken'], 'error': 'Préparation impossible. Vérifier la source, Gemini / OpenAI et Kokoro dans l’Atelier.', 'retryable': True})
+                                {'leaseToken': self.item['leaseToken'], 'error': 'Préparation impossible. Vérifier la source, Gemini / OpenAI et le moteur audio dans l’Atelier.', 'retryable': True})
                     self.message = 'Préparation interrompue : ' + str(erreur)[:300]
                     if self.stop.wait(5):
                         break

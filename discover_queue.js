@@ -19,7 +19,7 @@ const STAGE_TEXT = {
   download: 'Téléchargement de l’épisode', normalize: 'Préparation de l’audio', transcribe: 'Transcription (MacWhisper ou transcription de l’émission)',
   source_ready: 'Source prête', plan: 'Plan de l’épisode (Gemini)', extract: 'Extraction des faits et arguments (Gemini)',
   adapt: 'Écriture de la version anglaise (Gemini)', translate: 'Traduction fidèle (Gemini)', evaluate: 'Contrôle de fidélité',
-  review: 'En attente de relecture (mode manuel)', tts: 'Création de l’audio anglais (Kokoro)', publish: 'Publication dans Discover',
+  review: 'En attente de relecture (mode manuel)', tts: 'Création de l’audio anglais (Deepgram ou Heart)', publish: 'Publication dans Discover',
 };
 const COVERAGE = { full: 'Intégral', condensed: 'Condensé', essentials: 'L’essentiel' };
 const KINDS = { episode: 'Podcast', youtube: 'YouTube', reflection: 'Texte · My Mind' };

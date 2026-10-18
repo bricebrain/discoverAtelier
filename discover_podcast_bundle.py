@@ -104,7 +104,7 @@ def construire(item, source, prepared, audio, folder, faithful=None, faithful_au
                   {'startMs': t['startMs'], 'endMs': t['endMs']} for s, t in zip(script, timing)]
         path = 'audio/' + key + '.mp3'
         add(path, result['file'], 'audio/mpeg')
-        variant['audio'] = {'source': 'r2', 'file': path, 'origin': 'kokoro', 'durationMs': result['durationMs'], 'timingSource': 'kokoro'}
+        variant['audio'] = {'source': 'r2', 'file': path, 'origin': result.get('origin', 'kokoro'), 'durationMs': result['durationMs'], 'timingSource': result.get('timingSource', 'kokoro')}
         document(key, mapped, variant, prepared['script'].get('keyVocab') if variant['kind'] == 'adaptation' else None)
 
     if faithful:

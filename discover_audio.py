@@ -9,7 +9,7 @@ from discover_source import commande, ffmpeg
 from discover_ai import empreinte as fingerprint
 
 BASE = Path(__file__).parent
-VOICES = {'Narrator': 'bf_emma', 'Host': 'bf_emma', 'Guest': 'bm_george'}
+VOICES = {'Narrator': 'af_heart', 'Host': 'af_heart', 'Guest': 'bm_george'}
 
 
 def executer(segments, folder, name, verifier, speeds=None):
@@ -55,7 +55,8 @@ def calibrer(folder, verifier):
     version = [[p.stat().st_size, p.stat().st_mtime_ns] for p in
                [BASE / 'modeles_tts/kokoro-v1.0.onnx', BASE / 'modeles_tts/voices-v1.0.bin']]
     old = pipeline.lire_json(str(cache))
-    if old and old.get('version') == version:
+    if (old and old.get('version') == version
+            and all(voice in old.get('speeds', {}) for voice in VOICES.values())):
         return old['speeds']
     sample = ('A clear explanation helps us understand a difficult subject. We can listen to the main idea, then look at the evidence. '
               'Some people may agree with the first argument. Others may have a different view. Both views should be explained fairly. '

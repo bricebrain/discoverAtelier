@@ -4,6 +4,7 @@ from pathlib import Path
 
 import adaptation
 import discover_audio
+import discover_speech
 import discover_cible
 import discover_review
 import discover_vocabulary
@@ -59,14 +60,17 @@ def preparer(item, source, root, etape, verifier, config, client=None):
     pipeline.ecrire_json(str(folder / 'prepared.json'), prepared)
     automatique = bool(config.get('autoPublish', True))
     discover_review.exiger(item, prepared, source, folder, automatique)
+    speech = discover_speech.Session([prepared['script']['segments']] + ([faithful] if faithful else []),
+                                     root.parent, config, folder, item['source'].get('title', ''))
     etape('tts')
-    speeds = discover_audio.calibrer(root.parent / '.kokoro', verifier)
-    audio = discover_audio.executer(prepared['script']['segments'], folder, variant_key(item['options']), verifier, speeds)
+    speeds = speech.kokoro_speeds(verifier) if speech.provider == 'kokoro' else {}
+    audio = speech.generate(prepared['script']['segments'], folder, variant_key(item['options']), verifier, speeds)
     target = item['options']['targetMinutes']
     actual = audio['durationMs'] / 60_000
-    if target and not .8 * target <= actual <= 1.2 * target:
+    if speech.provider == 'kokoro' and target and not .8 * target <= actual <= 1.2 * target:
+        speeds = speeds or speech.kokoro_speeds(verifier)
         adjusted = {voice: round(min(1.4, max(.6, speed * actual / target)), 3) for voice, speed in speeds.items()}
-        audio = discover_audio.executer(prepared['script']['segments'], folder, variant_key(item['options']), verifier, adjusted)
+        audio = speech.generate(prepared['script']['segments'], folder, variant_key(item['options']), verifier, adjusted)
         actual = audio['durationMs'] / 60_000
     pipeline.ecrire_json(str(folder / 'runtime.json'), {'scriptHash': empreinte(prepared['script']), 'durationMs': audio['durationMs']})
     if target and not .8 * target <= actual <= 1.2 * target:
@@ -78,7 +82,7 @@ def preparer(item, source, root, etape, verifier, config, client=None):
     prepared['evaluation']['actualDurationMs'] = audio['durationMs']
     if faithful:
         etape('tts')
-        faithful_audio = discover_audio.executer(faithful, folder, 'en-faithful', verifier, speeds)
+        faithful_audio = speech.generate(faithful, folder, 'en-faithful', verifier, speeds)
     verifier()
     etape('publish')
     content_id = identifiant_contenu(item)

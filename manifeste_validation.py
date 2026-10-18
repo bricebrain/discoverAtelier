@@ -110,6 +110,8 @@ def valider_manifeste(m, context=None):
             refuser('segments_too_large')
         used.add(path)
         audio = v.get('audio') or {}
+        if audio and ((audio.get('origin') == 'deepgram') != (audio.get('timingSource') == 'deepgram')):
+            refuser('invalid_audio_origin')
         if audio.get('source') == 'r2':
             path = audio['file']
             if not chemin_valide(path) or files.get(path, {}).get('contentType') != 'audio/mpeg':

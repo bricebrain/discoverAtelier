@@ -9,6 +9,7 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 from discover_queue import FILE
 import discover_cible
 import discover_review
+import discover_tts_settings
 import jsonschema
 
 # Messages compréhensibles pour les erreurs du Worker les plus courantes.
@@ -35,6 +36,7 @@ def _erreur_discover(erreur):
 
 ASSETS = {'/discover': ('discover_queue.html', 'text/html; charset=utf-8'),
           '/discover_queue.js': ('discover_queue.js', 'text/javascript; charset=utf-8'),
+          '/discover_tts_ui.js': ('discover_tts_ui.js', 'text/javascript; charset=utf-8'),
           '/discover_review.js': ('discover_review.js', 'text/javascript; charset=utf-8')}
 
 
@@ -80,7 +82,14 @@ def traiter(handler, methode, path, donnees=None):
             donnees = json.loads(handler.rfile.read(longueur) or b'{}')
             if not isinstance(donnees, dict):
                 raise ValueError('Objet JSON requis.')
-        if methode == 'GET' and path == '/api/discover/reviews':
+        if methode == 'GET' and path == '/api/discover/tts':
+            handler._envoyer(200, discover_tts_settings.status(FILE.dossier))
+        elif methode == 'POST' and path == '/api/discover/tts':
+            config = discover_tts_settings.save(donnees)
+            with FILE.verrou:
+                FILE.config = config
+            handler._envoyer(200, discover_tts_settings.status(FILE.dossier, config))
+        elif methode == 'GET' and path == '/api/discover/reviews':
             active = {i['id'] for i in FILE.liste()['items'] if i['status'] == 'pending' and i['stage'] == 'review'}
             handler._envoyer(200, {'reviews': [r for r in discover_review.liste(FILE.dossier) if r['id'] in active]})
         elif methode == 'GET' and path == '/api/discover/review':
