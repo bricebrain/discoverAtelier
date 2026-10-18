@@ -77,8 +77,17 @@ def valider_manifeste(m, context=None):
     ref = c.get('sourceRef') or ''
     if ((c['sourceType'] == 'podcast' and not re.fullmatch(r'episode:[0-9a-f]{20}', ref))
             or (c['sourceType'] == 'reflection' and not re.fullmatch(r'reflection:[0-9a-f-]{36}', ref))
-            or (c['sourceType'] == 'youtube' and c.get('sourceRef') is not None and not re.fullmatch(r'youtube:[A-Za-z0-9_-]{11}', ref))):
+            or (c['sourceType'] == 'youtube' and c.get('sourceRef') is not None and not re.fullmatch(r'youtube:[A-Za-z0-9_-]{11}', ref))
+            or (c['sourceType'] == 'dossier' and (not re.fullmatch(r'dossier:[0-9a-f-]{36}', ref) or c['id'] != 'dossier-' + ref[8:]
+                                                  or not c.get('sources')))):
         refuser('invalid_source_ref')
+    # Dossier : sources d1…dN dans l'ordre, sans audio source ni flux éditeur ; ailleurs, aucune source multiple.
+    if c['sourceType'] == 'dossier':
+        if ([x['id'] for x in c['sources']] != [f'd{i}' for i in range(1, len(c['sources']) + 1)]
+                or any((v.get('audio') or {}).get('source') == 'publisher_stream' or (v['kind'] == 'source' and v.get('audio')) for v in variants)):
+            refuser('invalid_dossier_sources')
+    elif c.get('sources'):
+        refuser('invalid_dossier_sources')
     if sum(f['size'] for f in files.values()) > 300_000_000:
         refuser('publication_too_large')
     used = set()
@@ -163,3 +172,13 @@ def valider_segments(doc, variant, source_ids=None):
         if any(i not in (source_ids or set()) for i in s.get('sourceSegments', [])):
             refuser('invalid_source_segments')
     return doc
+
+
+def valider_provenance(doc, source_ids, variante_source):
+    """Provenance : chaque passage de la source d'un dossier renvoie à une source déclarée ; interdite ailleurs."""
+    for s in doc['segments']:
+        p = s.get('provenance')
+        if (variante_source and source_ids) and (not p or p['sourceId'] not in source_ids):
+            refuser('invalid_provenance')
+        if not (variante_source and source_ids) and p:
+            refuser('invalid_provenance')

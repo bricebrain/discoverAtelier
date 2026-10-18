@@ -305,4 +305,7 @@ def preparer_source(item, dossier, etape, verifier):
         return preparer_youtube(item, dossier, etape, verifier)
     if kind == 'reflection':
         return preparer_texte(item, dossier, etape, verifier)
+    if kind == 'dossier':
+        import discover_dossier
+        return discover_dossier.preparer(item, dossier, etape, verifier)
     return preparer(item, dossier, etape, verifier)

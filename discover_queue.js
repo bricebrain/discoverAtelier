@@ -22,7 +22,7 @@ const STAGE_TEXT = {
   review: 'En attente de relecture (mode manuel)', tts: 'Création de l’audio anglais (Deepgram ou Heart)', publish: 'Publication dans Discover',
 };
 const COVERAGE = { full: 'Intégral', condensed: 'Condensé', essentials: 'L’essentiel' };
-const KINDS = { episode: 'Podcast', youtube: 'YouTube', reflection: 'Texte · My Mind' };
+const KINDS = { episode: 'Podcast', youtube: 'YouTube', reflection: 'Texte · My Mind', dossier: 'Dossier multisource' };
 // Un texte n'a ni téléchargement ni audio source : ses étapes commencent au découpage.
 const stepsFor = (kind) => (kind === 'reflection' ? STEPS.filter(([key]) => !['download', 'normalize'].includes(key)) : STEPS);
 const LEVELS = ['A2', 'B1', 'B2', 'C1', 'original'];

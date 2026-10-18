@@ -123,7 +123,8 @@ class FileDiscover:
             uuid.UUID(self.item['id'])
             kind = self.item.get('kind', 'episode')
             motif = {'episode': r'[0-9a-f]{20}', 'youtube': r'[A-Za-z0-9_-]{11}',
-                     'reflection': r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'}.get(kind)
+                     'reflection': r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}',
+                     'dossier': r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'}.get(kind)
             if not motif or not re.fullmatch(motif, self.item['ref']):
                 raise ValueError('Identifiant source invalide.')
             dossier = self.dossier / (self.item['ref'] if kind == 'episode' else f'{kind}-{self.item["ref"]}')

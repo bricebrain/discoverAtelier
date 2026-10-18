@@ -34,13 +34,33 @@ def donnees(value):
     return '\n<source_data>\n' + json.dumps(value, ensure_ascii=False) + '\n</source_data>'
 
 
-def generer(client, sources, options, etape=lambda _: None, wpm=130, revision=0, frequent=None, feedback=None):
+DOSSIER_RULES = '''This edition synthesizes SEVERAL independent sources into one listening dossier. Each source passage carries the
+title of its source in "source". Say each point once even when several sources make it, citing every supporting passage.
+When sources disagree (figures, interpretations, forecasts, recommendations), state the disagreement explicitly and attribute
+each position to its source by title ("according to X ..., whereas Y ..."). Never present one source's claim as a consensus.
+Keep claims attributed when only one source makes them. Personal notes are the listener's own reflections: present them as such.
+'''
+
+
+def generer(client, sources, options, etape=lambda _: None, wpm=130, revision=0, frequent=None, feedback=None, dossier=False):
+    global RULES
+    regles = RULES
+    if dossier:
+        # Consignes propres aux dossiers multisources, pour toutes les étapes de cette génération.
+        RULES = DOSSIER_RULES + RULES
+    try:
+        return _generer(client, sources, options, etape, wpm, revision, frequent, feedback, dossier)
+    finally:
+        RULES = regles
+
+
+def _generer(client, sources, options, etape, wpm, revision, frequent, feedback, dossier):
     groups = blocs(sources)
     ids = {s['id'] for s in sources}
     etape('plan')
     # Le plan voit des extraits de TOUS les segments, pas seulement l'ouverture de l'épisode.
     plan = client.demander('plan', RULES + 'Build a short global outline, speaker list, exact proper-name spellings and glossary. '
-                           + donnees([{'id': s['id'], 'text': s['text'][:350]} for s in sources]), PLAN)
+                           + donnees([{'id': s['id'], 'text': s['text'][:350], **({'source': s['source']} if dossier else {})} for s in sources]), PLAN)
     etape('extract')
     extracts = []
     for index, group in enumerate(groups):

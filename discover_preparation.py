@@ -20,13 +20,17 @@ def preparer(item, source, root, etape, verifier, config, client=None):
     folder.mkdir(parents=True, exist_ok=True)
     client = client or Client(root / 'gemini-cache', verifier)
     sources = json.loads(Path(source['segmentsFile']).read_text())['segments']
+    # Dossier : le modèle voit chaque passage avec le titre de sa source, sans la provenance (réservée au manifeste).
+    dossier = item['source'].get('kind') == 'dossier'
+    if dossier:
+        sources = [{k: s[k] for k in ('id', 'text', 'source') if k in s} for s in sources]
     revision = (pipeline.lire_json(str(folder / 'revision.json')) or {}).get('revision', 0)
     frequent = discover_vocabulary.charger(root.parent)
     edited = pipeline.lire_json(str(folder / 'edited.json'))
-    prepared = adaptation.generer(client, sources, item['options'], etape, revision=revision, frequent=frequent)
+    prepared = adaptation.generer(client, sources, item['options'], etape, revision=revision, frequent=frequent, dossier=dossier)
     # Une contradiction ou promotion détectée par le juge déclenche une nouvelle écriture, une fois.
     if prepared['evaluation']['verdict'] == 'rejected' and not edited:
-        prepared = adaptation.generer(client, sources, item['options'], etape, revision=revision, frequent=frequent, feedback=prepared['evaluation']['judge'])
+        prepared = adaptation.generer(client, sources, item['options'], etape, revision=revision, frequent=frequent, feedback=prepared['evaluation']['judge'], dossier=dossier)
     if edited:
         valider_script(edited, {s['id'] for s in sources}, item['options']['style'])
         prepared['script'] = edited

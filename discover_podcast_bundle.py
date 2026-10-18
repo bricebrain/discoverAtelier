@@ -6,7 +6,7 @@ from pathlib import Path
 import pipeline
 from discover_download import empreinte
 from discover_ai import empreinte as fingerprint
-from manifeste_validation import valider_manifeste, valider_segments
+from manifeste_validation import valider_manifeste, valider_provenance, valider_segments
 
 
 def content_id(item):
@@ -17,6 +17,8 @@ def content_id(item):
         return 'youtube-' + fingerprint(item['ref'])[:20]
     if kind == 'reflection':
         return 'reflection-' + item['ref']
+    if kind == 'dossier':
+        return 'dossier-' + item['ref']
     return 'podcast-' + item['ref']
 
 
@@ -63,6 +65,7 @@ def construire(item, source, prepared, audio, folder, faithful=None, faithful_au
         add('segments/' + key + '.json', local, 'application/json')
         variant['segmentsFile'] = 'segments/' + key + '.json'
         valider_segments(doc, variant, ids)
+        valider_provenance(doc, {x['id'] for x in source.get('dossierSources') or []}, variant['kind'] == 'source')
         variants.append(variant)
 
     timed = bool(original_doc.get('timingSource') != 'none')
@@ -77,7 +80,7 @@ def construire(item, source, prepared, audio, folder, faithful=None, faithful_au
         reference_end = original_doc['segments'][-1].get('endMs')
         if reference_end is None or abs(reference_end - source_duration*1000) > 1500:
             timed = False
-    if kind == 'reflection':
+    if kind in ('reflection', 'dossier'):
         original_audio = None
         timed = False
     else:
@@ -88,7 +91,7 @@ def construire(item, source, prepared, audio, folder, faithful=None, faithful_au
             original_audio.pop('url')
             original_audio.update(source='r2', file='audio/' + original_key + '.mp3')
             add(original_audio['file'], source['audioFile'], 'audio/mpeg')
-    original = [{k: s[k] for k in ('id', 'text', 'speaker') if s.get(k) is not None} |
+    original = [{k: s[k] for k in ('id', 'text', 'speaker', 'provenance') if s.get(k) is not None} |
                 {'startMs': s.get('startMs') if timed else None, 'endMs': s.get('endMs') if timed else None}
                 for s in original_doc['segments']]
     source_variant = {'key': original_key, 'kind': 'source', 'language': language, 'coverage': 'full'}
@@ -140,6 +143,10 @@ def construire(item, source, prepared, audio, folder, faithful=None, faithful_au
         content.update(sourceType='youtube', sourceRef='youtube:' + item['ref'], sourceUrl=item['source']['url'])
     elif kind == 'reflection':
         content.update(sourceType='reflection', sourceRef='reflection:' + item['ref'], sourceUrl=None)
+    elif kind == 'dossier':
+        # Sources réellement traitées, dans l'ordre de l'exécution figée par le Worker.
+        content.update(sourceType='dossier', sourceRef='dossier:' + item['ref'], sourceUrl=None, sources=source['dossierSources'],
+                       editorial='discovery')
     else:
         content.update(sourceType='podcast', sourceRef='episode:' + item['ref'], sourceUrl=item['source']['audioUrl'])
     manifest = {'schemaVersion': 1, 'content': content, 'variants': variants, 'files': files, 'removeVariants': []}
