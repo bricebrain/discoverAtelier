@@ -26,7 +26,7 @@ TARIFS_DEFAUT = {
 }
 COLONNES = ('key', 'item_id', 'title', 'month', 'created_at', 'gemini_micro', 'gemini_in', 'gemini_out',
             'openai_micro', 'openai_in', 'openai_out', 'deepgram_micro', 'deepgram_chars', 'voice',
-            'tts_provider', 'fallback_reason', 'models')
+            'tts_provider', 'fallback_reason', 'models', 'quiz_micro')
 
 
 def _prix(valeur):
@@ -104,6 +104,8 @@ class Registre:
                 openai_micro INTEGER NOT NULL, openai_in INTEGER NOT NULL, openai_out INTEGER NOT NULL,
                 deepgram_micro INTEGER NOT NULL, deepgram_chars INTEGER NOT NULL, voice TEXT NOT NULL,
                 tts_provider TEXT NOT NULL, fallback_reason TEXT NOT NULL, models TEXT NOT NULL)''')
+            if 'quiz_micro' not in {r[1] for r in db.execute('PRAGMA table_info(preparations)')}:
+                db.execute('ALTER TABLE preparations ADD COLUMN quiz_micro INTEGER NOT NULL DEFAULT 0')
 
     @contextmanager
     def connection(self):
@@ -123,6 +125,7 @@ class Registre:
         grille = tarifs(config)
         totaux = {'gemini': [0, 0, 0], 'openai': [0, 0, 0]}  # micro-USD, jetons d'entrée, jetons de sortie.
         modeles = set()
+        quiz_micro = 0
         appels = appels if isinstance(appels, dict) else {}
         for appel in appels.values():
             if not isinstance(appel, dict) or appel.get('cached'):
@@ -133,7 +136,10 @@ class Registre:
             tarif = grille.get(modele) or grille['*']
             if isinstance(modele, str) and modele:
                 modeles.add(modele)
-            totaux[fournisseur][0] += round(entree * tarif['inputUsdPerMillion'] + sortie * tarif['outputUsdPerMillion'])
+            cout = round(entree * tarif['inputUsdPerMillion'] + sortie * tarif['outputUsdPerMillion'])
+            totaux[fournisseur][0] += cout
+            if appel.get('stage') == 'quiz':
+                quiz_micro += cout
             totaux[fournisseur][1] += entree
             totaux[fournisseur][2] += sortie
         audio = pipeline.lire_json(str(folder / 'audio-estimate.json')) or {}
@@ -149,9 +155,13 @@ class Registre:
                  round(_montant(audio.get('estimatedUsd')) * 1_000_000) if deepgram else 0,
                  _nombre(audio.get('newCharacters')) if deepgram else 0,
                  str(audio.get('voice') or ''), str(audio.get('provider') or ''),
-                 str(audio.get('fallbackReason') or ''), json.dumps(sorted(modeles)))
+                 str(audio.get('fallbackReason') or ''), json.dumps(sorted(modeles)), quiz_micro)
         with self.connection() as db:
-            db.execute('INSERT OR REPLACE INTO preparations VALUES (' + ','.join('?' * len(COLONNES)) + ')', ligne)
+            # Reprise entièrement en cache : conserver le coût déjà enregistré de cette révision.
+            if appels and all(isinstance(a, dict) and a.get('cached') for a in appels.values()):
+                if db.execute('SELECT 1 FROM preparations WHERE key=?', (cle,)).fetchone():
+                    return
+            db.execute('INSERT OR REPLACE INTO preparations (' + ','.join(COLONNES) + ') VALUES (' + ','.join('?' * len(COLONNES)) + ')', ligne)
 
     def ia_par_mois(self):
         """Totaux IA (micro-USD) par mois, pour additionner avec le registre Deepgram."""
@@ -177,7 +187,7 @@ def _ligne_vers_dict(ligne):
     deepgram = ligne['deepgram_micro'] / 1_000_000
     return {'id': ligne['item_id'], 'title': ligne['title'], 'createdAt': ligne['created_at'], 'month': ligne['month'],
             'geminiUsd': round(gemini, 6), 'openaiUsd': round(openai, 6), 'deepgramUsd': round(deepgram, 6),
-            'totalUsd': round(gemini + openai + deepgram, 6),
+            'totalUsd': round(gemini + openai + deepgram, 6), 'quizUsd': ligne['quiz_micro'] / 1_000_000,
             'geminiTokens': ligne['gemini_in'] + ligne['gemini_out'], 'openaiTokens': ligne['openai_in'] + ligne['openai_out'],
             'deepgramCharacters': ligne['deepgram_chars'], 'voice': ligne['voice'], 'ttsProvider': ligne['tts_provider'],
             'fallbackReason': ligne['fallback_reason'] or None, 'models': json.loads(ligne['models'])}

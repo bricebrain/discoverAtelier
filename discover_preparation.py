@@ -7,6 +7,7 @@ import discover_audio
 import discover_speech
 import discover_cible
 import discover_englishfluency
+import discover_quiz
 import discover_costs
 import discover_review
 import discover_vocabulary
@@ -57,6 +58,7 @@ def preparer(item, source, root, etape, verifier, config, client=None):
         prepared['evaluation']['faithfulChecks'] = {key:faithful_checks[key] for key in ('numbersMissingFromSource','entitiesMissingFromSource')}
         if any(prepared['evaluation']['faithfulChecks'].values()) and prepared['evaluation']['verdict'] != 'rejected':
             prepared['evaluation']['verdict'] = 'review'
+    prepared['quiz'] = discover_quiz.generer(client, prepared['script'], item['options']['level'], config)
     prepared['generation'] = {**prepared['generation'], **client.statistiques()}
     runtime = pipeline.lire_json(str(folder / 'runtime.json'))
     if runtime and runtime.get('scriptHash') == empreinte(prepared['script']) and item['options']['targetMinutes']:

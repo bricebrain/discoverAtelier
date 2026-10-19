@@ -23,3 +23,11 @@ JUDGE = objet({'verdict': {'type': 'string', 'enum': ['ok', 'review', 'rejected'
                'lostNuances': liste(TEXT), 'promotionsRemaining': liste(TEXT), 'languageWarnings': liste(TEXT)})
 
 FULL_JUDGE = objet({**JUDGE["properties"], "factChecks": liste(objet({"factIndex": {"type": "integer"}, "presentInScript": {"type": "boolean"}, "reason": TEXT}))})
+
+QUIZ = objet({'questions': {'type': 'array', 'minItems': 3, 'maxItems': 3, 'items': objet({
+    'question': {'type': 'string', 'minLength': 1, 'maxLength': 500},
+    'choices': {'type': 'array', 'minItems': 3, 'maxItems': 3,
+                'items': {'type': 'string', 'minLength': 1, 'maxLength': 300}},
+    'correctChoice': {'type': 'integer', 'minimum': 0, 'maximum': 2},
+    'explanation': {'type': 'string', 'minLength': 1, 'maxLength': 800},
+    'segmentIndex': {'type': 'integer', 'minimum': 0, 'maximum': 99999}})}})

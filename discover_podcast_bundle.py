@@ -3,6 +3,8 @@ import copy
 import json
 from pathlib import Path
 
+import discover_quiz
+import jsonschema
 import pipeline
 from discover_download import empreinte
 from discover_ai import empreinte as fingerprint
@@ -117,6 +119,11 @@ def construire(item, source, prepared, audio, folder, faithful=None, faithful_au
     adaptation = {'key': key, 'kind': 'adaptation', 'language': 'en', 'cefrLevel': None if options['level'] == 'original' else options['level'],
                   'style': options['style'], 'coverage': options['coverage'], 'derivedFrom': original_key,
                   'generation': prepared['generation'], 'evaluation': prepared['evaluation']}
+    if prepared.get('quiz'):
+        try:
+            adaptation['quiz'] = discover_quiz.valider(prepared['quiz'], len(prepared['script']['segments']))
+        except (ValueError, jsonschema.ValidationError):
+            pass  # Quiz rejeté, contenu publiable.
     if options['coverage'] != 'full':
         adaptation['condensation'] = {'targetMinutes': options['targetMinutes'], 'sourceMinutes': source_duration / 60, 'excludeAds': True}
     narrated(key, prepared['script']['segments'], audio, adaptation)
