@@ -199,9 +199,15 @@ class RelatedBoundariesTests(unittest.TestCase):
         import discover_related_pairs as pairs
         with tempfile.TemporaryDirectory() as root:
             store = Store(root)
-            rows = [(str(i), item(i), str(i), [1., 0.]) for i in range(4)]
-            self.assertEqual(pairs.prepare(store, rows, lambda: None, limit=2), (False, 2, 6))
-            self.assertEqual(pairs.prepare(store, rows, lambda: None, limit=2), (False, 4, 6))
-            self.assertEqual(pairs.prepare(store, rows, lambda: None, limit=2), (True, 6, 6))
-            self.assertEqual(len(list(pairs.scores(store))), 6)
+            vectors = [[1., 0.], [.9, .1], [0., 1.], [.1, .9]]
+            rows = [(str(i), item(i), 'f%d' % i, vectors[i]) for i in range(4)]
+            # Budget de 1 comparaison : le premier élément ne coûte rien, le deuxième 1, le troisième attend.
+            self.assertEqual(pairs.prepare(store, rows, lambda: None, limit=1), (False, 2, 4))
+            self.assertEqual(pairs.prepare(store, rows, lambda: None, limit=10), (True, 4, 4))
+            # Seules les paires proches sont gardées : (0,1) et (2,3).
+            self.assertEqual(sorted((a, b) for a, b, _ in pairs.scores(store, rows)), [('0', '1'), ('2', '3')])
+            # Un nouvel élément n'est comparé qu'aux éléments existants, sans tout recalculer.
+            rows.append(('4', item(4), 'f4', [1., .05]))
+            self.assertEqual(pairs.prepare(store, rows, lambda: None, limit=4), (True, 5, 5))
+            self.assertIn(('0', '4'), {(a, b) for a, b, _ in pairs.scores(store, rows)})
             store.close()

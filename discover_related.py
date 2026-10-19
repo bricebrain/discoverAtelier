@@ -117,13 +117,15 @@ def run(root, config, request, busy=False, verifier=lambda: None, encoder=None, 
             for (f, _), vector in zip(batch, vectors):
                 store.save_vector(f, vector)
         ready = [(k, i, f, store.vector(f)) for k, i, f in eligible if store.vector(f) is not None]
-        complete, done, total = discover_related_pairs.prepare(store, ready, verifier)
+        # Plafond : les 3 000 éléments les plus récents (calcul sur le processeur seul).
+        ready = sorted(ready, key=lambda r: r[1].get('publishedAt') or '', reverse=True)[:3000]
+        complete, done, total = discover_related_pairs.prepare(store, ready, verifier, config=config)
         if not complete:
             store.set('status', {**store.get('status', {}), 'ollama': 'Cache local · calcul des voisins',
                                  'pairsDone': done, 'pairsTotal': total})
             return {'deferred': 'Calcul des voisins reprenable', 'pairsDone': done, 'pairsTotal': total}
         sources, groups = calculate(ready, config, Judge(store, root, config, verifier, judge_factory),
-                                    verifier, pairs=discover_related_pairs.scores(store))
+                                    verifier, pairs=discover_related_pairs.scores(store, ready))
         # Désactivation des notes : effacer également leurs anciens voisins distants.
         sources += [{'type': i['type'], 'id': i['id'], 'neighbors': []} for _, i, _ in rows
                     if i['type'] == 'reflection' and not config.get('relatedIncludeNotes', True)]
