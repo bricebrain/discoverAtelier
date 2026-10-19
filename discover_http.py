@@ -9,6 +9,7 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 from discover_queue import FILE
 import discover_cible
 import discover_vocabulary_picks
+import discover_related
 import discover_costs
 import discover_review
 import discover_tts_settings
@@ -84,7 +85,9 @@ def traiter(handler, methode, path, donnees=None):
             donnees = json.loads(handler.rfile.read(longueur) or b'{}')
             if not isinstance(donnees, dict):
                 raise ValueError('Objet JSON requis.')
-        if methode == 'GET' and path == '/api/discover/tts':
+        if methode == 'GET' and path == '/api/discover/related':
+            handler._envoyer(200, discover_related.status(FILE.dossier))
+        elif methode == 'GET' and path == '/api/discover/tts':
             handler._envoyer(200, discover_tts_settings.status(FILE.dossier))
         elif methode == 'GET' and path == '/api/discover/vocabulary':
             handler._envoyer(200, discover_vocabulary_picks.liste(FILE.config or discover_cible.charger_config()))

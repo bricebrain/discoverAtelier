@@ -7,8 +7,14 @@
   "openaiApiKey": "",
   "openaiModel": "gpt-5-mini",
   "pricing": {
-    "gemini-3.1-flash-lite": {"inputUsdPerMillion": 0.25, "outputUsdPerMillion": 1.5},
-    "gpt-5-mini": {"inputUsdPerMillion": 0.25, "outputUsdPerMillion": 2}
+    "gemini-3.1-flash-lite": {
+      "inputUsdPerMillion": 0.25,
+      "outputUsdPerMillion": 1.5
+    },
+    "gpt-5-mini": {
+      "inputUsdPerMillion": 0.25,
+      "outputUsdPerMillion": 2
+    }
   },
   "autoPublish": true,
   "comprehensionQuiz": true,
@@ -25,5 +31,15 @@
     "monthlyLimitUsd": 10,
     "speed": 1,
     "fallback": true
-  }
+  },
+  "relatedIncludeNotes": true,
+  "relatedModel": "bge-m3",
+  "relatedThreads": 4,
+  "relatedMinScore": 0.55,
+  "relatedWindowHours": 72,
+  "relatedSameLanguageScore": 0.72,
+  "relatedCrossLanguageScore": 0.64,
+  "relatedDoubtScore": 0.6,
+  "relatedLlm": false,
+  "relatedLlmDailyCap": 20
 }

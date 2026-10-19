@@ -1,11 +1,13 @@
 """Consommateur de la file Discover, indépendant des jobs YouTube et du vocabulaire."""
 import fcntl
+import logging
 import re
 import threading
 import uuid
 from pathlib import Path
 
 import bundles
+import discover_related
 import discover_articles
 import discover_cible
 import discover_source
@@ -189,6 +191,11 @@ class FileDiscover:
                             discover_articles.traiter_en_attente(self.config, self.requete, self.verifier)
                         except Exception:
                             pass  # une page ou le réseau ne doit jamais arrêter le préparateur
+                    if not self.source_only:
+                        try:
+                            discover_related.run(self.dossier, self.config, self.requete, verifier=self.verifier)
+                        except Exception:
+                            logging.getLogger(__name__).warning('Rapprochement différé : vérifier le Worker, le cache local et la taille des groupes.')
                     if self.stop.wait(15):
                         break
                     continue

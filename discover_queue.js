@@ -558,3 +558,12 @@ void reviews((count) => setChecks(count));
 setInterval(refreshQueue, 4000);
 setInterval(() => reviews((count) => setChecks(count)), 20000);
 setInterval(loadCosts, 30000);
+
+async function loadRelated() {
+  try {
+    const s = await api('related');
+    $('related-status').textContent = `${s.ollama} · ${s.encoded} empreintes encodées · ${s.groups || 0} groupes · dernier passage : ${s.lastRun || 'aucun'} · ${s.llmCallsToday} appels IA aujourd’hui · coût : ${(s.llmCostTodayUsd || 0).toFixed(6)} USD`;
+  } catch (error) { $('related-status').textContent = error.message; }
+}
+void loadRelated();
+setInterval(loadRelated, 30000);
