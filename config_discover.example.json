@@ -18,6 +18,7 @@
   },
   "autoPublish": true,
   "comprehensionQuiz": true,
+  "vocabularyAutoSync": true,
   "englishFluency": {
     "enabled": false,
     "workerUrl": "https://englishfluency.<compte>.workers.dev",
