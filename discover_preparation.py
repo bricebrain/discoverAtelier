@@ -6,6 +6,7 @@ import adaptation
 import discover_audio
 import discover_speech
 import discover_cible
+import discover_costs
 import discover_review
 import discover_vocabulary
 import pipeline
@@ -100,4 +101,8 @@ def preparer(item, source, root, etape, verifier, config, client=None):
     result = discover_cible.publier_manifeste(manifest, paths, config=config, demande=item, verifier=verifier)
     pipeline.ecrire_json(str(folder / 'published.json'), result)
     (folder / 'action.json').unlink(missing_ok=True)
+    try:  # comptabilité locale : une publication réussie ne doit pas échouer pour un problème de coûts
+        discover_costs.enregistrer(item, client.appels, folder, root.parent, config)
+    except Exception as erreur:
+        print('Coûts de la préparation non enregistrés : ' + str(erreur)[:200])
     return result
