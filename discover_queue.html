@@ -72,6 +72,10 @@
   .alert { border-radius: 10px; padding: 10px 12px; display: flex; gap: 12px; align-items: flex-start; font-size: 13px; }
   .alert.error { background: var(--erreur-doux); color: var(--erreur); } .alert.warn { background: var(--attention-doux); color: var(--attention); }
   .ai-repli { color: var(--attention); font-weight: 600; }
+  .auto-panel { margin-bottom: 14px; } .auto-panel summary { cursor: pointer; }
+  .auto-global { display: flex; gap: 8px; align-items: center; margin: 10px 0 4px; font-weight: 600; }
+  .auto-row { display: grid; grid-template-columns: auto 1fr auto auto; gap: 10px; align-items: center; padding: 6px 0; border-top: 1px solid var(--bord, rgba(0,0,0,.08)); }
+  .auto-row select:disabled { opacity: .5; }
   .alert.info { background: var(--info-doux); color: var(--info); } .alert.ok { background: var(--ok-doux); color: var(--ok); }
   .alert strong { display: block; } .alert .grow { flex: 1; }
 
@@ -171,6 +175,13 @@
 
 
   <section id="panel-podcasts" role="tabpanel" aria-labelledby="tab-podcasts">
+    <details class="card auto-panel" id="auto-panel">
+      <summary><strong>Préparation automatique chaque matin</strong> <span class="small muted" id="auto-summary"></span></summary>
+      <label class="auto-global"><input type="checkbox" id="auto-enabled"> Activer les préparations automatiques</label>
+      <p class="small muted">Le dernier épisode de chaque émission cochée est mis en file dès sa parution, puis préparé ici et publié.
+        L’essentiel 4 min ≈ 0,09 USD de voix Deepgram par épisode, Condensé 8 min ≈ 0,19 USD (estimations) ; au-delà du plafond mensuel, Kokoro prend le relais.</p>
+      <div id="auto-shows"></div>
+    </details>
     <div class="filters">
       <input type="search" id="q" placeholder="Chercher un titre ou une émission" aria-label="Chercher">
       <select id="show" aria-label="Émission"><option value="">Toutes les émissions</option></select>

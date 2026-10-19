@@ -101,6 +101,17 @@ def traiter(handler, methode, path, donnees=None):
             handler._envoyer(200, result)
         elif methode == 'GET' and path == '/api/discover/shows':
             handler._envoyer(200, FILE.requete(FILE.config or discover_cible.charger_config(), 'GET', '/atelier/shows'))
+        elif methode == 'POST' and path == '/api/discover/show-auto':
+            # Préparation automatique d'une émission : mêmes règles que dans l'app (podcasts, deux formules).
+            show = str(donnees.get('id', ''))
+            if not re.fullmatch(r'[a-z0-9-]{1,64}', show):
+                raise ValueError('Émission invalide.')
+            corps = {k: donnees[k] for k in ('autoPrepare', 'autoPreset', 'autoLevel') if k in donnees}
+            handler._envoyer(200, FILE.requete(FILE.config or discover_cible.charger_config(), 'PATCH', f'/atelier/shows/{show}', corps))
+        elif methode == 'POST' and path == '/api/discover/auto-setting':
+            if not isinstance(donnees.get('enabled'), bool):
+                raise ValueError('Interrupteur invalide.')
+            handler._envoyer(200, FILE.requete(FILE.config or discover_cible.charger_config(), 'PUT', '/atelier/settings/auto-prepare', {'enabled': donnees['enabled']}))
         elif methode == 'GET' and path == '/api/discover/episodes':
             query = parse_qs(urlsplit(handler.path).query)
             filtres = {k: v[0][:200] for k, v in query.items() if k in FILTRES and v and v[0]}

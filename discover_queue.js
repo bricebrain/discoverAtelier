@@ -288,9 +288,46 @@ async function loadEpisodes(append = false) {
   }
 }
 
+// ── Préparation automatique par émission ─────────────────────────────────────
+let autoShows = [];
+const PRESETS = { essentials4: 'L’essentiel · 4 min', condensed8: 'Condensé · 8 min' };
+function renderAuto(enabled) {
+  $('auto-enabled').checked = enabled;
+  const podcasts = autoShows.filter((s) => s.enabled && s.sourceType !== 'youtube');
+  const active = podcasts.filter((s) => s.autoPrepare).length;
+  $('auto-summary').textContent = enabled ? `· ${active} émission${active > 1 ? 's' : ''}` : '· coupée';
+  $('auto-shows').replaceChildren(...podcasts.map((s) => {
+    const row = el('div', null, 'auto-row');
+    const box = Object.assign(el('input'), { type: 'checkbox', checked: s.autoPrepare, disabled: !enabled });
+    box.setAttribute('aria-label', 'Préparer automatiquement ' + s.title);
+    const preset = el('select');
+    preset.append(...Object.entries(PRESETS).map(([v, l]) => Object.assign(el('option', l), { value: v, selected: v === s.autoPreset })));
+    const level = el('select');
+    level.append(...LEVELS.map((v) => Object.assign(el('option', v === 'original' ? 'non simplifié' : v), { value: v, selected: v === s.autoLevel })));
+    preset.disabled = level.disabled = !enabled || !s.autoPrepare;
+    const save = async () => {
+      row.querySelectorAll('input,select').forEach((n) => { n.disabled = true; });
+      try {
+        const { show } = await api('show-auto', { id: s.id, autoPrepare: box.checked, autoPreset: preset.value, autoLevel: level.value });
+        Object.assign(s, show);
+      } catch (error) { banner('error', 'Réglage non enregistré', error.message); }
+      renderAuto($('auto-enabled').checked);
+    };
+    box.onchange = save; preset.onchange = save; level.onchange = save;
+    row.append(box, el('span', s.title), preset, level);
+    return row;
+  }));
+}
+$('auto-enabled').addEventListener('change', async (event) => {
+  try { renderAuto((await api('auto-setting', { enabled: event.target.checked })).enabled); }
+  catch (error) { banner('error', 'Réglage non enregistré', error.message); event.target.checked = !event.target.checked; }
+});
+
 async function loadShows() {
   try {
     const data = await api('shows');
+    autoShows = data.shows;
+    renderAuto(data.autoPrepareEnabled !== false);
     categories = { tech: 'Tech', science: 'Sciences', economy: 'Économie', news: 'Actualité', football: 'Football', stories: 'Histoires' };
     for (const c of data.categories || []) if (!categories[c]) categories[c] = c;
     $('category').append(...Object.entries(categories).map(([v, l]) => Object.assign(el('option', l), { value: v })));

@@ -99,5 +99,28 @@ class Suppressions(unittest.TestCase):
         self.assertEqual(h.reponses[0], (503, {'erreur': 'Annule d’abord la préparation en cours.'}))
 
 
+class PreparationAutomatique(unittest.TestCase):
+    def appeler(self, path, corps):
+        h = poster(path, corps)
+        with mock.patch.object(discover_http.FILE, 'requete', return_value={'show': {'id': 'edito-eco'}, 'enabled': False}) as appel, \
+                mock.patch.object(discover_http.FILE, 'config', {'workerUrl': 'x'}):
+            discover_http.traiter(h, 'POST', path)
+        return h, appel
+
+    def test_reglage_d_une_emission_transmis_au_worker(self):
+        h, appel = self.appeler('/api/discover/show-auto', {'id': 'edito-eco', 'autoPrepare': True, 'autoPreset': 'condensed8', 'autoLevel': 'B1', 'autre': 1})
+        self.assertEqual(h.reponses[0][0], 200)
+        self.assertEqual(appel.call_args.args[1:], ('PATCH', '/atelier/shows/edito-eco', {'autoPrepare': True, 'autoPreset': 'condensed8', 'autoLevel': 'B1'}))
+        h, appel = self.appeler('/api/discover/show-auto', {'id': '../x'})
+        self.assertEqual(h.reponses[0][0], 503)
+        appel.assert_not_called()
+
+    def test_interrupteur_general(self):
+        h, appel = self.appeler('/api/discover/auto-setting', {'enabled': False})
+        self.assertEqual(appel.call_args.args[1:], ('PUT', '/atelier/settings/auto-prepare', {'enabled': False}))
+        h, appel = self.appeler('/api/discover/auto-setting', {'enabled': 'non'})
+        appel.assert_not_called()
+
+
 if __name__ == '__main__':
     unittest.main()
