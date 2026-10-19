@@ -52,10 +52,19 @@ class PreparationDossier(unittest.TestCase):
         self.assertEqual(first['provenance'], {'sourceId': 'd1', 'segmentId': 's0001', 'startMs': 61000, 'endMs': 64000})
         self.assertEqual((first['startMs'], first['endMs']), (None, None))
         self.assertEqual(first['source'], 'Épisode dette')
+        note = next(s for s in doc['segments'] if s['id'].startswith('d2-'))
+        self.assertEqual(note['source'], 'Ma note (personal note)')
         self.assertEqual(doc['language'], 'en')
         self.assertEqual([s['id'] for s in result['dossierSources']], ['d1', 'd2', 'd3'])
         self.assertEqual(result['dossierSources'][2]['publicationId'], 'pub-1')
         self.assertRegex(result['dossierSources'][0]['sha256'], r'^[0-9a-f]{64}$')
+
+    def test_un_article_est_attribue_a_son_journal(self):
+        article = {**snapshots()[1], 'origin': 'article', 'sourceName': 'The Guardian', 'title': 'Debt ceiling'}
+        self.assertEqual(discover_dossier.etiquette(article), 'Debt ceiling (article, The Guardian)')
+        self.assertIn('ARTICLE from "The Guardian"', adaptation.contexte_note({'kind': 'reflection', 'origin': 'article', 'sourceName': 'The Guardian'}))
+        self.assertIn('personal note', adaptation.contexte_note({'kind': 'reflection'}))
+        self.assertEqual(adaptation.contexte_note({'kind': 'episode'}), '')
 
     def test_refuse_des_sources_dans_le_desordre(self):
         bad = snapshots()[::-1]

@@ -38,16 +38,31 @@ DOSSIER_RULES = '''This edition synthesizes SEVERAL independent sources into one
 title of its source in "source". Say each point once even when several sources make it, citing every supporting passage.
 When sources disagree (figures, interpretations, forecasts, recommendations), state the disagreement explicitly and attribute
 each position to its source by title ("according to X ..., whereas Y ..."). Never present one source's claim as a consensus.
-Keep claims attributed when only one source makes them. Personal notes are the listener's own reflections: present them as such.
+Keep claims attributed when only one source makes them. A source labelled "(personal note)" is the listener's own reflection:
+present it as such. A source labelled "(article, <publication>)" is a published article: attribute its claims to that publication,
+never to the listener.
 '''
 
 
-def generer(client, sources, options, etape=lambda _: None, wpm=130, revision=0, frequent=None, feedback=None, dossier=False):
+def contexte_note(source):
+    """Consigne d'attribution pour une note préparée seule : article publié ou réflexion personnelle."""
+    if source.get('kind') != 'reflection':
+        return ''
+    if source.get('origin') == 'article':
+        name = (source.get('sourceName') or 'its publication')[:120]
+        return ('This text is a published ARTICLE from ' + json.dumps(name, ensure_ascii=False)
+                + '. Present its claims as reported by that publication; never present them as the listener\'s own opinion.\n')
+    return 'This text is the listener\'s own personal note: present it as their reflection, without adding claims.\n'
+
+
+def generer(client, sources, options, etape=lambda _: None, wpm=130, revision=0, frequent=None, feedback=None, dossier=False, contexte=''):
     global RULES
     regles = RULES
     if dossier:
         # Consignes propres aux dossiers multisources, pour toutes les étapes de cette génération.
         RULES = DOSSIER_RULES + RULES
+    if contexte:
+        RULES = contexte + RULES
     try:
         return _generer(client, sources, options, etape, wpm, revision, frequent, feedback, dossier)
     finally:

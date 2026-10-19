@@ -29,6 +29,16 @@ def _dossier_cache(root, snapshot):
     return root / snapshot['ref']
 
 
+def etiquette(snapshot):
+    """Libellé d'une source pour le modèle : un article est attribué à son journal, une note reste personnelle."""
+    title = snapshot['title'][:160]
+    if snapshot['kind'] == 'reflection':
+        if snapshot.get('origin') == 'article':
+            return f"{title} (article, {(snapshot.get('sourceName') or 'publication inconnue')[:80]})"
+        return f'{title} (personal note)'
+    return title
+
+
 def _segments_source(snapshot, root, options, etape, verifier):
     """Passages d'une source : (segments, langue, empreinte du texte utilisé)."""
     kind = snapshot['kind']
@@ -73,10 +83,13 @@ def preparer(item, dossier, etape, verifier, root=None):
         segments, language, sha = _segments_source(snapshot, root, item['options'], etape, verifier)
         for s in segments:
             combined.append({'id': f"{snapshot['id']}-{s['id']}", 'text': s['text'], 'startMs': None, 'endMs': None,
-                             'source': snapshot['title'][:200], 'language': language,
+                             'source': etiquette(snapshot), 'language': language,
                              'provenance': {'sourceId': snapshot['id'], 'segmentId': s['id'],
                                             'startMs': s.get('startMs'), 'endMs': s.get('endMs')}})
-        summary = {'id': snapshot['id'], 'type': snapshot['type'], 'ref': snapshot['ref'], 'title': snapshot['title'][:500],
+        titre = snapshot['title'][:400]
+        if snapshot['kind'] == 'reflection' and snapshot.get('origin') == 'article' and snapshot.get('sourceName'):
+            titre = f"{snapshot['sourceName'][:80]} · {titre}"
+        summary = {'id': snapshot['id'], 'type': snapshot['type'], 'ref': snapshot['ref'], 'title': titre,
                    'capturedAt': snapshot['capturedAt'], 'sha256': sha}
         if snapshot.get('publicationId'):
             summary.update(publicationId=snapshot['publicationId'], variantKey=snapshot['variantKey'])

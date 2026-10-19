@@ -27,10 +27,11 @@ def preparer(item, source, root, etape, verifier, config, client=None):
     revision = (pipeline.lire_json(str(folder / 'revision.json')) or {}).get('revision', 0)
     frequent = discover_vocabulary.charger(root.parent)
     edited = pipeline.lire_json(str(folder / 'edited.json'))
-    prepared = adaptation.generer(client, sources, item['options'], etape, revision=revision, frequent=frequent, dossier=dossier)
+    contexte = adaptation.contexte_note(item['source'])  # article attribué à sa publication, ou note personnelle
+    prepared = adaptation.generer(client, sources, item['options'], etape, revision=revision, frequent=frequent, dossier=dossier, contexte=contexte)
     # Une contradiction ou promotion détectée par le juge déclenche une nouvelle écriture, une fois.
     if prepared['evaluation']['verdict'] == 'rejected' and not edited:
-        prepared = adaptation.generer(client, sources, item['options'], etape, revision=revision, frequent=frequent, feedback=prepared['evaluation']['judge'], dossier=dossier)
+        prepared = adaptation.generer(client, sources, item['options'], etape, revision=revision, frequent=frequent, feedback=prepared['evaluation']['judge'], dossier=dossier, contexte=contexte)
     if edited:
         valider_script(edited, {s['id'] for s in sources}, item['options']['style'])
         prepared['script'] = edited
