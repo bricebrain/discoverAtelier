@@ -116,15 +116,20 @@ def recuperer(url, ouvrir=None):
     return {'status': etat, 'text': texte, 'title': titre} if etat != 'unavailable' else {'status': 'unavailable'}
 
 
+# Deux files : notes My Mind (UUID) et articles d'Explorer sans texte dans leur flux (The Guardian).
+FILES_ARTICLES = (('/atelier/article-fetches', r'[0-9a-f-]{36}'), ('/atelier/article-texts', r'[0-9a-f]{20}'))
+
+
 def traiter_en_attente(config, requete, verifier=lambda: None, ouvrir=None):
     """Traite quelques demandes en attente ; renvoie le nombre traité. Appelé quand le préparateur est inactif."""
-    demandes = requete(config, 'GET', '/atelier/article-fetches').get('items') or []
     traitees = 0
-    for demande in demandes[:PAR_TOUR]:
-        verifier()
-        if not re.fullmatch(r'[0-9a-f-]{36}', str(demande.get('id', ''))):
-            continue
-        resultat = recuperer(str(demande.get('url') or ''), ouvrir)
-        requete(config, 'POST', '/atelier/article-fetches/' + demande['id'], resultat)
-        traitees += 1
+    for chemin, motif in FILES_ARTICLES:
+        demandes = requete(config, 'GET', chemin).get('items') or []
+        for demande in demandes[:PAR_TOUR]:
+            verifier()
+            if not re.fullmatch(motif, str(demande.get('id', ''))):
+                continue
+            resultat = recuperer(str(demande.get('url') or ''), ouvrir)
+            requete(config, 'POST', chemin + '/' + demande['id'], resultat)
+            traitees += 1
     return traitees

@@ -71,12 +71,17 @@ class Extraction(unittest.TestCase):
 
         def requete(config, methode, chemin, data=None):
             appels.append((methode, chemin, data))
-            return {'items': [{'id': '11111111-1111-4111-8111-111111111111', 'url': 'https://www.theguardian.com/world/x'}]} if methode == 'GET' else {}
+            if methode != 'GET':
+                return {}
+            if chemin == '/atelier/article-fetches':
+                return {'items': [{'id': '11111111-1111-4111-8111-111111111111', 'url': 'https://www.theguardian.com/world/x'}]}
+            return {'items': [{'id': 'a' * 20, 'url': 'https://www.theguardian.com/world/y'}, {'id': '../x', 'url': 'https://x.org'}]}
 
         n = articles.traiter_en_attente({}, requete, ouvrir=lambda r, timeout: Reponse(PAGE))
-        self.assertEqual(n, 1)
-        self.assertEqual(appels[-1][1], '/atelier/article-fetches/11111111-1111-4111-8111-111111111111')
-        self.assertEqual(appels[-1][2]['status'], 'partial')
+        self.assertEqual(n, 2)
+        posts = [a for a in appels if a[0] == 'POST']
+        self.assertEqual([p[1] for p in posts], ['/atelier/article-fetches/11111111-1111-4111-8111-111111111111', '/atelier/article-texts/' + 'a' * 20])
+        self.assertEqual(posts[0][2]['status'], 'partial')
 
 
 if __name__ == '__main__':
