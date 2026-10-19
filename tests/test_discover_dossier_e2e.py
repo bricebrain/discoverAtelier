@@ -60,6 +60,47 @@ class DossierBoutEnBout(unittest.TestCase):
             self.assertEqual(json.loads(published[0].read_text())['status'], 'ready')
             self.assertEqual(sim.costs['preparations'][0]['quizUsd'], .003)
 
+    def test_article_explorer_et_episode_avec_quiz_couts_et_provenance(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            sim = Simulation(Path(tmp), 'dossier')
+            article = {'id': 'd6', 'type': 'article', 'kind': 'article', 'ref': 'c' * 20,
+                       'title': 'Explorer article', 'language': 'en', 'origin': 'article',
+                       'sourceName': 'The Guardian', 'sourceUrl': 'https://www.theguardian.com/test',
+                       'publishedAt': '2026-10-18', 'capturedAt': '2026-10-19T10:00:00.000Z',
+                       'contentStatus': 'complete', 'text': 'The city will add buses next month.\n\nThe plan aims to cut traffic.'}
+            sim.worker.item['source']['sources'].append(article)
+            sim.executer()
+            self.assertTrue(sim.worker.ready)
+            manifest = sim.worker.manifest
+            self.assertEqual(manifest['content']['sources'][-1]['type'], 'article')
+            self.assertIn('The Guardian', manifest['content']['sources'][-1]['title'])
+            source = next(v for v in manifest['variants'] if v['kind'] == 'source')
+            doc = json.loads(sim.worker.uploads[source['segmentsFile']])
+            passages = [s for s in doc['segments'] if s['provenance']['sourceId'] == 'd6']
+            self.assertEqual(len(passages), 2)
+            self.assertEqual(passages[0]['provenance'], {'sourceId': 'd6', 'segmentId': 's0001',
+                                                        'startMs': None, 'endMs': None})
+            self.assertIn('Explorer article (article, The Guardian)', sim.ai.prompts[0])
+            adapted = next(v for v in manifest['variants'] if v['kind'] == 'adaptation')
+            final = json.loads(sim.worker.uploads[adapted['segmentsFile']])
+            cited = {r for s in final['segments'] for r in s['sourceSegments']}
+            self.assertTrue({s['id'] for s in passages} <= cited)
+            self.assertEqual(adapted['quiz'], QUESTIONS)
+            self.assertEqual(sim.costs['preparations'][0]['quizUsd'], .003)
+            self.assertEqual(sim.media[0], ('episode', EPISODE))
+
+    def test_article_explorer_incomplet_refuse_avant_ia(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            sim = Simulation(Path(tmp), 'dossier')
+            sim.worker.item['source']['sources'][0] = {
+                'id': 'd1', 'type': 'article', 'kind': 'article', 'ref': 'c' * 20,
+                'title': 'Incomplete', 'text': 'An excerpt.', 'contentStatus': 'partial'}
+            with self.assertRaises(AssertionError) as error:
+                sim.executer()
+            self.assertIsInstance(error.exception.__cause__, ValueError)
+            self.assertEqual(sim.ai.prompts, [])
+            self.assertFalse(sim.worker.ready)
+
     def test_bail_perdu_avant_publication_interdit_toute_ecriture_distante(self):
         with tempfile.TemporaryDirectory() as tmp:
             sim = Simulation(Path(tmp), 'dossier')
