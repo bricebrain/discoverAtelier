@@ -150,7 +150,7 @@ class QueueTests(unittest.TestCase):
         with mock.patch.object(discover_cible, 'requete', side_effect=[
                 {'publicationId': 'id', 'status': 'uploading', 'missing': [path]},
                 {}, {'status': 'ready'}]) as request:
-            discover_cible.publier_manifeste(manifest, {path: '/tmp/audio'}, config={}, demande=ITEM)
+            discover_cible.publier_manifeste(manifest, {path: '/tmp/audio'}, config={'workerUrl': 'https://discover.example.com'}, demande=ITEM)
         self.assertEqual(request.call_args_list[0].args[3]['leaseToken'], ITEM['leaseToken'])
         for call in request.call_args_list[1:]:
             self.assertEqual(call.kwargs['headers']['X-Discover-Lease-Token'], ITEM['leaseToken'])
