@@ -1,0 +1,9 @@
+{
+  "openaiApiKey": "",
+  "geminiApiKey": "",
+  "generatorModel": "gemini-3.1-flash-lite",
+  "auditorModel": "gpt-6-luna",
+  "batchSize": 20,
+  "maxRetries": 2,
+  "autoPublish": true
+}

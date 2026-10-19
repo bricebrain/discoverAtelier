@@ -43,10 +43,22 @@ import discover_cible  # publication Discover indépendante
 import discover_http
 from discover_queue import FILE as FILE_DISCOVER
 import pipeline       # logique métier bilingue : prompts, validation, canPublish
+import vocabulaire    # audit/correction du référentiel words du Worker
+import vocabulaire_automatisation  # migration croisee Gemini -> OpenAI
+import vocabulaire_ia_config  # secrets API conserves uniquement en local
+import vocabulaire_lots  # cycle de vie des lots d'enrichissement
 
 
 CHEMIN_HTML = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                            "interface.html")
+CHEMIN_VOCABULAIRE_HTML = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "vocabulaire.html")
+CHEMIN_VOCABULAIRE_CSS = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "vocabulaire.css")
+CHEMIN_VOCABULAIRE_JS = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "vocabulaire.js")
+CHEMIN_VOCABULAIRE_API_JS = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "vocabulaire_api.js")
 
 
 def trouver_ffmpeg():
@@ -768,6 +780,54 @@ class Gestionnaire(BaseHTTPRequestHandler):
             return
         url = urllib.parse.urlsplit(self.path)
         parametres = dict(urllib.parse.parse_qsl(url.query))
+        fichiers_vocabulaire = {
+            "/vocabulaire": (CHEMIN_VOCABULAIRE_HTML, "text/html; charset=utf-8"),
+            "/vocabulaire.css": (CHEMIN_VOCABULAIRE_CSS, "text/css; charset=utf-8"),
+            "/vocabulaire_api.js": (CHEMIN_VOCABULAIRE_API_JS, "text/javascript; charset=utf-8"),
+            "/vocabulaire.js": (CHEMIN_VOCABULAIRE_JS, "text/javascript; charset=utf-8"),
+        }
+        if url.path in fichiers_vocabulaire:
+            chemin, mime = fichiers_vocabulaire[url.path]
+            try:
+                with open(chemin, "rb") as fichier:
+                    self._envoyer(200, fichier.read(), mime)
+            except OSError:
+                self._envoyer(500, {"erreur": "interface vocabulaire introuvable"})
+            return
+        if url.path == "/api/vocabulaire/mots":
+            try:
+                resultat = vocabulaire.chercher_mots(
+                    parametres.get("q", ""), parametres.get("niveau", ""),
+                    parametres.get("offset", 0), parametres.get("limit", 100),
+                    force=parametres.get("force") == "1",
+                    connaissance=parametres.get("connaissance", ""),
+                    enrichissement=parametres.get("enrichissement", ""),
+                    type_mot=parametres.get("type", ""))
+                self._envoyer(200, resultat)
+            except (RuntimeError, ValueError) as erreur:
+                self._envoyer(502, {"erreur": str(erreur)})
+            return
+        if url.path == "/api/vocabulaire/lot":
+            self._envoyer(200, vocabulaire_lots.detail(parametres.get("batchId", "")))
+            return
+        if url.path == "/api/vocabulaire/prochains":
+            try:
+                ids = vocabulaire.selectionner_prochains(
+                    parametres.get("limit", 50), parametres.get("niveau", ""),
+                    parametres.get("type", ""), parametres.get("connaissance", ""))
+                self._envoyer(200, {"ids": ids, "items": vocabulaire.detailler_mots(ids)})
+            except (RuntimeError, ValueError) as erreur:
+                self._envoyer(400, {"erreur": str(erreur)})
+            return
+        if url.path == "/api/vocabulaire/ollama":
+            self._envoyer(200, vocabulaire.etat_ollama())
+            return
+        if url.path == "/api/vocabulaire/ia":
+            try:
+                self._envoyer(200, vocabulaire_automatisation.MIGRATION.instantane())
+            except RuntimeError as erreur:
+                self._envoyer(500, {"erreur": str(erreur)})
+            return
         if url.path == "/api/bundle":
             detail = detail_bundle(parametres.get("slug", ""))
             if detail:
@@ -812,6 +872,92 @@ class Gestionnaire(BaseHTTPRequestHandler):
         slug = str(donnees.get("slug", "")).strip()
         if self.path == "/api/atelier":
             self._atelier(donnees)
+        elif self.path == "/api/vocabulaire/lot":
+            try:
+                lot = vocabulaire.creer_lot(donnees.get("ids") or [])
+                self._envoyer(200, {"ok": True, "batch": lot})
+            except (RuntimeError, ValueError) as erreur:
+                self._envoyer(400, {"erreur": str(erreur)})
+        elif self.path == "/api/vocabulaire/lot/importer":
+            try:
+                detail = vocabulaire_lots.importer(
+                    str(donnees.get("batchId", "")), str(donnees.get("texte", "")))
+                self._envoyer(200, {"ok": True, **detail})
+            except ValueError as erreur:
+                self._envoyer(400, {"erreur": str(erreur)})
+        elif self.path == "/api/vocabulaire/ollama/generer":
+            try:
+                resume = vocabulaire.generer_avec_ollama(
+                    donnees.get("ids") or [], donnees.get("model"))
+                self._envoyer(200, {"ok": True, "resume": resume})
+            except (RuntimeError, ValueError) as erreur:
+                self._envoyer(400, {"erreur": str(erreur)})
+        elif self.path == "/api/vocabulaire/ia/config":
+            try:
+                config = vocabulaire_ia_config.enregistrer(donnees)
+                self._envoyer(200, {"ok": True, "config": config})
+            except (RuntimeError, ValueError, OSError) as erreur:
+                self._envoyer(400, {"erreur": str(erreur)})
+        elif self.path == "/api/vocabulaire/ia/demarrer":
+            try:
+                resultat = vocabulaire_automatisation.MIGRATION.demarrer(
+                    str(donnees.get("connaissance", "not_known")),
+                    int(donnees.get("limite") or 0))
+                self._envoyer(202, {"ok": True, "migration": resultat})
+            except (RuntimeError, ValueError) as erreur:
+                self._envoyer(400, {"erreur": str(erreur)})
+        elif self.path == "/api/vocabulaire/ia/arreter":
+            try:
+                resultat = vocabulaire_automatisation.MIGRATION.arreter()
+                self._envoyer(200, {"ok": True, "migration": resultat})
+            except ValueError as erreur:
+                self._envoyer(400, {"erreur": str(erreur)})
+        elif self.path == "/api/vocabulaire/lot/statut":
+            try:
+                entree = vocabulaire_lots.changer_statut(
+                    str(donnees.get("batchId", "")), str(donnees.get("id", "")),
+                    str(donnees.get("statut", "")))
+                self._envoyer(200, {"ok": True, "entry": entree})
+            except ValueError as erreur:
+                self._envoyer(400, {"erreur": str(erreur)})
+        elif self.path == "/api/vocabulaire/lot/approuver":
+            try:
+                detail = vocabulaire_lots.approuver_tout(
+                    str(donnees.get("batchId", "")))
+                self._envoyer(200, {"ok": True, **detail})
+            except ValueError as erreur:
+                self._envoyer(400, {"erreur": str(erreur)})
+        elif self.path == "/api/vocabulaire/lot/editer":
+            try:
+                entree = vocabulaire_lots.modifier(
+                    str(donnees.get("batchId", "")), str(donnees.get("id", "")),
+                    donnees.get("proposition") or {})
+                self._envoyer(200, {"ok": True, "entry": entree})
+            except ValueError as erreur:
+                self._envoyer(400, {"erreur": str(erreur)})
+        elif self.path == "/api/vocabulaire/lot/publier":
+            try:
+                resultat = vocabulaire_lots.publier(
+                    str(donnees.get("batchId", "")), bool(donnees.get("partiel")))
+                self._envoyer(200, {"ok": True, "publication": resultat})
+            except ValueError as erreur:
+                self._envoyer(400, {"erreur": str(erreur)})
+            except RuntimeError as erreur:
+                self._envoyer(502, {"erreur": str(erreur)})
+        elif self.path == "/api/vocabulaire/lot/supprimer":
+            try:
+                detail = vocabulaire_lots.supprimer(str(donnees.get("batchId", "")))
+                self._envoyer(200, {"ok": True, **detail})
+            except ValueError as erreur:
+                self._envoyer(400, {"erreur": str(erreur)})
+        elif self.path == "/api/vocabulaire/supprimer":
+            try:
+                resultat = vocabulaire.supprimer_mots(donnees.get("ids") or [])
+                self._envoyer(200, {"ok": True, **resultat})
+            except ValueError as erreur:
+                self._envoyer(400, {"erreur": str(erreur)})
+            except RuntimeError as erreur:
+                self._envoyer(502, {"erreur": str(erreur)})
         elif self.path == "/api/jobs/masquer":
             if JOBS.masquer(str(donnees.get("jobId", ""))):
                 self._envoyer(200, {"ok": True})

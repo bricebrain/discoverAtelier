@@ -5,9 +5,12 @@ fileToImport/
 venv-tts/
 modeles_tts/
 _sauvegardes/
+vocabularyRevisions/
+tmp/
 
 # Secret du Worker : voir config_import.example.json
 config_import.json
+config_ia.json
 
 __pycache__/
 *.pyc

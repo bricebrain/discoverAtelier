@@ -33,6 +33,62 @@ tout seul), ou dans le Terminal :
 python3 convertisseur_web.py
 ```
 
+### Révision des 4 000+ mots du Worker
+
+Le bouton **◫ Réviser les 4 000 mots** ouvre un module intégré visuellement à
+l'Atelier. Il lit le référentiel réel via `GET /words`, permet de rechercher et
+sélectionner les entrées douteuses, puis les traite par lots versionnés. Le filtre
+**Pas encore connus** s'appuie sur le statut SRS du `profileId` configuré pour
+masquer les mots déjà maîtrisés.
+
+- **Ollama local** : ouvrez l'application Ollama, sélectionnez un modèle
+  installé et traitez de petits lots (10 mots maximum sur ce Mac) sans coût
+  par requête ;
+- **IA externe** : générez un prompt pour Gemini, DeepSeek ou ChatGPT, puis
+  collez la réponse JSON dans l'atelier (jusqu'à 50 mots par lot).
+
+Chaque lot suit quatre étapes : sélection (10, 20, 25 ou 50 mots), génération
+du prompt, import du JSON et revue humaine. Les identifiants et toutes les
+valeurs d'origine doivent correspondre exactement. Un import incomplet garde
+les entrées valides comme brouillon et signale les entrées manquantes. Chaque
+proposition peut être modifiée, refusée ou approuvée.
+
+La publication explicite appelle l'API d'administration du Worker. Elle ne
+modifie jamais la ligne originale de `words` : l'enrichissement courant et
+chaque version historique sont stockés séparément dans D1. Les relances sont
+idempotentes, un rollback crée une nouvelle version, et les données SRS sont
+préservées. Les lots locaux restent dans `vocabularyRevisions/revisions.json`.
+
+La suppression en masse est, elle, appliquée directement au Worker par
+`DELETE /words` (200 mots maximum). Après confirmation, la transaction D1
+supprime les entrées de `words`, leur progression `word_progress` et leurs
+cartes `lingvist_cards` pour tous les profils. Cette action est irréversible.
+
+### Migration automatique du vocabulaire par API
+
+La page `/vocabulaire` propose un parcours sans revue manuelle : Gemini
+génère un lot de 20 mots par défaut (taille réglable de 1 à 20), OpenAI contrôle et corrige la proposition,
+le schéma local valide le résultat, puis le lot est approuvé et publié.
+Une anomalie de structure est relancée automatiquement ; après épuisement
+des reprises, la migration s'arrête et libère le lot non publié.
+
+Configurez les clés depuis le bouton **Configurer les API**. Elles sont
+écrites dans `config_ia.json` avec des permissions locales restrictives ;
+ce fichier est ignoré par Git et les clés ne sont jamais renvoyées par
+l'API du navigateur. Les variables `OPENAI_API_KEY` et `GEMINI_API_KEY`
+peuvent aussi être utilisées. Voir `config_ia.example.json` pour les
+modèles et limites disponibles.
+
+Les réglages économiques par défaut utilisent `gemini-3.1-flash-lite` pour
+générer et `gpt-6-luna` avec `reasoning.effort: low` pour contrôler.
+Le suivi affiche les tokens entrants et sortants, raisonnement inclus.
+Le budget indicatif de 3 à 6 $ pour environ 4 100 mots reste à affiner avec
+la consommation du premier lot et les tarifs des fournisseurs ; il ne
+constitue pas un plafond de dépenses.
+
+Commencez par **Essai automatique sur 20 mots**. Lorsque ce lot est publié,
+choisissez **Tout le corpus restant**. L'arrêt demandé prend effet après le
+lot courant, afin de ne jamais laisser une publication à moitié appliquée.
 
 ### Parcours
 
@@ -99,7 +155,21 @@ python3 -m unittest discover -s tests -v
 | `pipeline.py`         | Logique métier : segments, prompts, validation, canPublish, publication |
 | `transcription.py`    | Transcription : sous-titres YouTube + MacWhisper  |
 | `bundles.py`          | Fichiers des bundles (slug, meta, inventaire) + connexion Worker |
-| `idees.py`            | Idées de contenus : recherche YouTube via le Worker, cache 1 h |
+| `vocabulaire.py`      | Orchestration de la révision du référentiel          |
+| `vocabulaire_lots.py` | Cycle de vie sélection, import, revue et publication |
+| `vocabulaire_prompt.py` | Prompt lexical versionné et snapshot des sources   |
+| `vocabulaire_publication.py` | Publication authentifiée vers le Worker      |
+| `vocabulaire_stockage.py` | Persistance atomique des lots locaux              |
+| `vocabulaire_progression.py` | Filtrage des mots connus via le SRS Worker   |
+| `vocabulaire_suppression.py` | Suppression en masse authentifiée du Worker  |
+| `ollama_vocabulaire.py` | Client du moteur IA local Ollama                      |
+| `vocabulaire_automatisation.py` | Orchestration Gemini → OpenAI → publication |
+| `vocabulaire_ia_clients.py` | Clients HTTP OpenAI et Gemini sans dépendance     |
+| `vocabulaire_ia_config.py` | Configuration locale sécurisée des fournisseurs    |
+| `vocabulaire_ia_schema.py` | Schéma JSON strict commun aux deux API             |
+| `vocabulaire_validation.py` | Validation pure des réponses IA du référentiel |
+| `vocabulaire.html`    | Interface dédiée à la révision des mots            |
+| `vocabulaire_api.js`  | Service HTTP du module vocabulaire                   |
 | `tts_kokoro.py`       | Synthèse Kokoro (lancée via `venv-tts`)           |
 | `tests/`              | Tests métier des parcours FR et EN                |
 | `fileToImport/`       | Bundles préparés pour l'app English Fluency       |

@@ -17,6 +17,7 @@ pipeline.py ; ce module gère les fichiers et la connexion au Worker.
 """
 
 import datetime
+import http.client
 import json
 import os
 import re
@@ -303,3 +304,5 @@ def _requete_worker(url, donnees=None, entetes=None, methode="GET", timeout=60):
         raise RuntimeError(f"HTTP {e.code} — {detail}")
     except urllib.error.URLError as e:
         raise RuntimeError(f"worker injoignable : {e.reason}")
+    except (OSError, http.client.HTTPException) as e:
+        raise RuntimeError(f"connexion au Worker interrompue : {e}") from e
