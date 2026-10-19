@@ -20,6 +20,10 @@ def _dossier_cache(root, snapshot):
         if not MOTIF_VIDEO.fullmatch(snapshot.get('videoId') or ''):
             raise ValueError('Identifiant vidéo invalide dans le dossier.')
         return root / ('youtube-' + snapshot['videoId'])
+    if snapshot['kind'] == 'article':
+        if not MOTIF_EPISODE.fullmatch(snapshot['ref']):
+            raise ValueError('Identifiant d’article invalide dans le dossier.')
+        return root / ('article-' + snapshot['ref'])
     if snapshot['kind'] == 'reflection':
         if not MOTIF_NOTE.fullmatch(snapshot['ref']):
             raise ValueError('Identifiant de note invalide dans le dossier.')
@@ -32,9 +36,9 @@ def _dossier_cache(root, snapshot):
 def etiquette(snapshot):
     """Libellé d'une source pour le modèle : un article est attribué à son journal, une note reste personnelle."""
     title = snapshot['title'][:160]
+    if snapshot['kind'] == 'article' or (snapshot['kind'] == 'reflection' and snapshot.get('origin') == 'article'):
+        return f"{title} (article, {(snapshot.get('sourceName') or 'publication inconnue')[:80]})"
     if snapshot['kind'] == 'reflection':
-        if snapshot.get('origin') == 'article':
-            return f"{title} (article, {(snapshot.get('sourceName') or 'publication inconnue')[:80]})"
         return f'{title} (personal note)'
     return title
 
@@ -48,7 +52,9 @@ def _segments_source(snapshot, root, options, etape, verifier):
         language = snapshot.get('language') or 'en'
     else:
         sub = {'ref': snapshot['ref'], 'options': options, 'source': {**snapshot, 'kind': kind}}
-        if kind == 'reflection':
+        if kind in ('reflection', 'article'):
+            if kind == 'article' and snapshot.get('contentStatus') != 'complete':
+                raise ValueError('Le dossier attend le texte complet de l’article.')
             resultat = discover_source.preparer_texte(sub, _dossier_cache(root, snapshot), etape, verifier)
         elif kind == 'youtube':
             resultat = discover_source.preparer_youtube(sub, _dossier_cache(root, snapshot), etape, verifier)
@@ -87,7 +93,7 @@ def preparer(item, dossier, etape, verifier, root=None):
                              'provenance': {'sourceId': snapshot['id'], 'segmentId': s['id'],
                                             'startMs': s.get('startMs'), 'endMs': s.get('endMs')}})
         titre = snapshot['title'][:400]
-        if snapshot['kind'] == 'reflection' and snapshot.get('origin') == 'article' and snapshot.get('sourceName'):
+        if (snapshot['kind'] == 'article' or snapshot.get('origin') == 'article') and snapshot.get('sourceName'):
             titre = f"{snapshot['sourceName'][:80]} · {titre}"
         summary = {'id': snapshot['id'], 'type': snapshot['type'], 'ref': snapshot['ref'], 'title': titre,
                    'capturedAt': snapshot['capturedAt'], 'sha256': sha}

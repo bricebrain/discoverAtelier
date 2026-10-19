@@ -287,7 +287,8 @@ def preparer_texte(item, dossier, etape, verifier):
     morceaux = decouper_texte(source['text'])
     if not morceaux:
         raise RuntimeError('Le texte est vide.')
-    source['language'] = detecter_langue(source['text'])
+    if source.get('kind') != 'article' or not source.get('language'):
+        source['language'] = detecter_langue(source['text'])
     segments_path = dossier / 'segments-source.json'
     segments = [{'id': f's{i:04d}', 'text': t, 'startMs': None, 'endMs': None} for i, t in enumerate(morceaux, 1)]
     pipeline.ecrire_json(str(segments_path), {'language': source['language'], 'timingSource': 'none', 'segments': segments})
