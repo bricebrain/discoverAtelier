@@ -6,6 +6,7 @@ import uuid
 from pathlib import Path
 
 import bundles
+import discover_articles
 import discover_cible
 import discover_source
 import discover_preparation
@@ -183,6 +184,11 @@ class FileDiscover:
                 if not self.item:
                     if not self.message:
                         self.message = 'À jour. En attente des demandes envoyées depuis Discover.'
+                    if not self.source_only:
+                        try:  # temps libre : récupérer le texte des articles partagés dans My Mind
+                            discover_articles.traiter_en_attente(self.config, self.requete, self.verifier)
+                        except Exception:
+                            pass  # une page ou le réseau ne doit jamais arrêter le préparateur
                     if self.stop.wait(15):
                         break
                     continue
