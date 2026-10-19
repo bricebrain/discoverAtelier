@@ -70,6 +70,9 @@ def calculate(rows, config, judge, verifier=lambda: None, pairs=None):
             neighbors[kb].append({'targetType': a['type'], 'targetId': a['id'], 'score': round(score, 6)})
         if not within(a, b, config.get('relatedWindowHours', 72)):
             continue
+        # Un même éditeur ou une même émission (épisodes d'une série, quotidienne) ne fait pas un événement couvert par plusieurs médias.
+        if a.get('publisher') and a.get('publisher') == b.get('publisher'):
+            continue
         same = a.get('language') == b.get('language') and a.get('language') not in (None, 'und')
         threshold = config.get('relatedSameLanguageScore', .72) if same else config.get('relatedCrossLanguageScore', .64)
         valid = score >= threshold and bool(clues(text(a)) & clues(text(b)))

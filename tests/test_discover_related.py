@@ -211,3 +211,15 @@ class RelatedBoundariesTests(unittest.TestCase):
             self.assertEqual(pairs.prepare(store, rows, lambda: None, limit=4), (True, 5, 5))
             self.assertIn(('0', '4'), {(a, b) for a, b, _ in pairs.scores(store, rows)})
             store.close()
+
+
+class SamePublisherTests(unittest.TestCase):
+    def test_same_publisher_never_forms_an_event_group(self):
+        from discover_related_similarity import calculate
+        a = item(1, 'Sherlock Holmes Part One London Baker Street', publisher='Sherlock Holmes')
+        b = item(2, 'Sherlock Holmes Part Two London Baker Street', publisher='Sherlock Holmes')
+        rows = [('a', a, 'fa', [1., 0.]), ('b', b, 'fb', [1., 0.01])]
+        sources, groups = calculate(rows, {}, lambda *args: True)
+        self.assertEqual(groups, [])
+        self.assertEqual(sources[0]['neighbors'][0]['targetId'], b['id'])
+
