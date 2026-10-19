@@ -6,6 +6,7 @@ from collections import defaultdict
 
 from discover_related_store import Store
 from discover_related_similarity import cosine, within
+from discover_related_groups import coherent_groups
 
 FIELDS = ['type_a', 'id_a', 'titre_a', 'editeur_a', 'date_a', 'type_b', 'id_b', 'titre_b', 'editeur_b', 'date_b', 'langues', 'score', 'meme_evenement']
 
@@ -71,26 +72,26 @@ def evaluate(path):
             if precision >= .9 and (best is None or recall > best[1]):
                 best = (threshold, recall)
         print(f'{lang} seuil proposé (précision ≥ 90 %) : {best[0] if best else "échantillon insuffisant"}')
-    # Les composantes peuvent créer des relations transitives : mesurer aussi ces relations.
+    # Diagnostic des scores seuls : sans le cache, les indices du texte ne sont pas disponibles.
     for threshold in (.60, .64, .68, .72, .76, .80):
-        parent = {}
-        def root(k):
-            parent.setdefault(k, k)
-            while parent[k] != k:
-                k = parent[k]
-            return k
+        keys, links = set(), []
         for r in rows:
             a, b = r['type_a']+':'+r['id_a'], r['type_b']+':'+r['id_b']
+            keys.update((a, b))
             if float(r['score']) >= threshold:
-                parent[root(b)] = root(a)
+                links.append((a, b, float(r['score'])))
+        membership = defaultdict(set)
+        for index, group in enumerate(coherent_groups(keys, links)):
+            for key in group:
+                membership[key].add(index)
         tp = fp = fn = 0
         for r in rows:
-            predicted = root(r['type_a']+':'+r['id_a']) == root(r['type_b']+':'+r['id_b'])
+            predicted = bool(membership[r['type_a']+':'+r['id_a']] & membership[r['type_b']+':'+r['id_b']])
             actual = r['meme_evenement'].strip().lower() in ('1', 'oui')
             tp += predicted and actual
             fp += predicted and not actual
             fn += not predicted and actual
-        print(f'groupes seuil={threshold:.2f} précision={tp/(tp+fp) if tp+fp else 0:.3f} rappel={tp/(tp+fn) if tp+fn else 0:.3f}')
+        print(f'groupes (scores seuls) seuil={threshold:.2f} précision={tp/(tp+fp) if tp+fp else 0:.3f} rappel={tp/(tp+fn) if tp+fn else 0:.3f}')
 
 
 if __name__ == '__main__':
