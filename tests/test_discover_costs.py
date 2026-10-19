@@ -205,7 +205,7 @@ class PreparationSimulee(unittest.TestCase):
                 mock.patch.object(workflow.discover_cible, 'requete', side_effect=workflow.discover_cible.ErreurDiscover(404, 'not_found')), \
                 mock.patch.object(workflow, 'construire', return_value=({}, {})), \
                 mock.patch.object(workflow.discover_cible, 'publier_manifeste', return_value={'status': 'ready'}):
-            workflow.preparer(self.item, self.source, self.root, lambda _: None, lambda: None, {}, self.client)
+            workflow.preparer(self.item, self.source, self.root, lambda _: None, lambda: None, {'comprehensionQuiz': False}, self.client)
 
     def test_le_cout_apparait_une_seule_fois(self):
         with mock.patch.object(discover_costs, 'datetime') as dt:  # horloge figée : octobre 2026
