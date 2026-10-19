@@ -19,7 +19,8 @@ from discover_tts_settings import settings
 # tarifs officiels de chaque modèle, puis ajuster sans toucher au code via la clé « pricing » de
 # config_discover.json. « * » s'applique à tout modèle inconnu, en majorant pour ne jamais sous-estimer.
 TARIFS_DEFAUT = {
-    'gemini-3.1-flash-lite': {'inputUsdPerMillion': 0.20, 'outputUsdPerMillion': 0.80},
+    # Grille publique relevée par l'étude D0 (19 octobre 2026) : entrée 0,25, sortie 1,50 USD par million, pensée comprise.
+    'gemini-3.1-flash-lite': {'inputUsdPerMillion': 0.25, 'outputUsdPerMillion': 1.50},
     'gpt-5-mini': {'inputUsdPerMillion': 0.25, 'outputUsdPerMillion': 2.00},
     '*': {'inputUsdPerMillion': 1.00, 'outputUsdPerMillion': 4.00},
 }

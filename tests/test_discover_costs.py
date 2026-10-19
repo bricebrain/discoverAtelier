@@ -83,7 +83,7 @@ class RegistreCouts(unittest.TestCase):
         self.assertEqual(len(data['preparations']), 1)
         # Le mois Deepgram vient du registre du budget (coûts réellement engagés) : rien d'engagé ici.
         mois = data['months'][0]
-        self.assertEqual((mois['month'], mois['geminiUsd'], mois['openaiUsd'], mois['deepgramUsd']), ('2026-10', 1.2, 0.25, 0.0))
+        self.assertEqual((mois['month'], mois['geminiUsd'], mois['openaiUsd'], mois['deepgramUsd']), ('2026-10', 1.875, 0.25, 0.0))
         self.assertAlmostEqual(mois['totalUsd'], 1.45)
         ligne = data['preparations'][0]
         self.assertEqual((ligne['ttsProvider'], ligne['voice'], ligne['deepgramUsd'], ligne['deepgramCharacters']),
@@ -96,7 +96,7 @@ class RegistreCouts(unittest.TestCase):
             discover_costs.Registre(self.root, maintenant=MAINTENANT).enregistrer(self.item, APPELS, self.folder)
         data = discover_costs.rapport(self.root, {}, maintenant=MAINTENANT)
         self.assertEqual(len(data['preparations']), 2)
-        self.assertAlmostEqual(data['months'][0]['geminiUsd'], 2.4)
+        self.assertAlmostEqual(data['months'][0]['geminiUsd'], 3.75)
 
     def test_le_mois_precedent_est_rapporte(self):
         self.audio(provider='kokoro')
@@ -105,14 +105,14 @@ class RegistreCouts(unittest.TestCase):
         data = discover_costs.rapport(self.root, {}, maintenant=MAINTENANT)
         self.assertEqual([m['month'] for m in data['months']], ['2026-10', '2026-09'])
         self.assertEqual(data['months'][0]['geminiUsd'], 0.0)
-        self.assertEqual(data['months'][1]['geminiUsd'], 1.2)
+        self.assertEqual(data['months'][1]['geminiUsd'], 1.875)
 
     def test_deepgram_et_ia_sont_additionnes(self):
         self.audio(provider='kokoro')
         discover_costs.Registre(self.root, maintenant=MAINTENANT).enregistrer(self.item, APPELS, self.folder)
         Budget(self.root / '.deepgram', month=lambda: '2026-10').reserve('fragment-1', 100_000, 10)  # 3 USD engagés
         mois = discover_costs.rapport(self.root, {'tts': {}}, maintenant=MAINTENANT)['months'][0]
-        self.assertEqual((mois['geminiUsd'], mois['openaiUsd'], mois['deepgramUsd']), (1.2, 0.25, 3.0))
+        self.assertEqual((mois['geminiUsd'], mois['openaiUsd'], mois['deepgramUsd']), (1.875, 0.25, 3.0))
         self.assertAlmostEqual(mois['totalUsd'], 4.45)
 
     def test_voix_repli_et_jetons_sont_consignes(self):
@@ -130,7 +130,7 @@ class RegistreCouts(unittest.TestCase):
         config = {'pricing': {'gpt-5-mini': {'inputUsdPerMillion': 1, 'outputUsdPerMillion': 1}}}
         discover_costs.Registre(self.root, maintenant=MAINTENANT).enregistrer(self.item, APPELS, self.folder, config)
         mois = discover_costs.rapport(self.root, config, maintenant=MAINTENANT)['months'][0]
-        self.assertEqual((mois['geminiUsd'], mois['openaiUsd']), (1.2, 0.3))
+        self.assertEqual((mois['geminiUsd'], mois['openaiUsd']), (1.875, 0.3))
 
     def test_appels_malformes_sont_ignorees(self):
         self.audio(provider='kokoro')
@@ -215,7 +215,7 @@ class PreparationSimulee(unittest.TestCase):
         data = discover_costs.rapport(self.base, {'tts': {}}, maintenant=MAINTENANT)
         self.assertEqual(len(data['preparations']), 1)
         mois = data['months'][0]
-        self.assertEqual((mois['geminiUsd'], mois['openaiUsd'], mois['deepgramUsd']), (1.2, 0.25, 0.0))
+        self.assertEqual((mois['geminiUsd'], mois['openaiUsd'], mois['deepgramUsd']), (1.875, 0.25, 0.0))
         ligne = data['preparations'][0]
         self.assertEqual(ligne['title'], 'Episode')
         self.assertEqual(ligne['ttsProvider'], 'kokoro')  # moteur local factice : aucune dépense Deepgram
@@ -242,7 +242,7 @@ class ReponsesEnCache(unittest.TestCase):
             discover_costs.Registre(root).enregistrer({'id': 'i1', 'options': {}, 'source': {'title': 'T'}}, appels, folder, {})
             ligne = discover_costs.Registre(root).dernieres(1)[0]
             self.assertEqual(ligne['gemini_in'], 1_000_000)
-            self.assertEqual(ligne['gemini_micro'], 200_000)
+            self.assertEqual(ligne['gemini_micro'], 250_000)
 
 if __name__ == '__main__':
     unittest.main()
