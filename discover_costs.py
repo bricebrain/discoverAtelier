@@ -124,8 +124,8 @@ class Registre:
         modeles = set()
         appels = appels if isinstance(appels, dict) else {}
         for appel in appels.values():
-            if not isinstance(appel, dict):
-                continue
+            if not isinstance(appel, dict) or appel.get('cached'):
+                continue  # une réponse servie par le cache n'a rien coûté cette fois-ci
             fournisseur = appel.get('provider') if appel.get('provider') in totaux else 'gemini'
             entree, sortie = _nombre(appel.get('inputTokens')), _nombre(appel.get('outputTokens'))
             modele = appel.get('model')

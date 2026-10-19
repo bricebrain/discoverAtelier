@@ -230,5 +230,19 @@ class PreparationSimulee(unittest.TestCase):
         self.assertTrue((publiee / 'published.json').exists())
 
 
+
+class ReponsesEnCache(unittest.TestCase):
+    def test_une_reponse_du_cache_n_est_pas_recomptee(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            folder = root / 'ep' / 'prepared-x'
+            folder.mkdir(parents=True)
+            appels = {'a': {'provider': 'gemini', 'model': 'gemini-3.1-flash-lite', 'inputTokens': 1_000_000, 'outputTokens': 0},
+                      'b': {'provider': 'gemini', 'model': 'gemini-3.1-flash-lite', 'inputTokens': 1_000_000, 'outputTokens': 0, 'cached': True}}
+            discover_costs.Registre(root).enregistrer({'id': 'i1', 'options': {}, 'source': {'title': 'T'}}, appels, folder, {})
+            ligne = discover_costs.Registre(root).dernieres(1)[0]
+            self.assertEqual(ligne['gemini_in'], 1_000_000)
+            self.assertEqual(ligne['gemini_micro'], 200_000)
+
 if __name__ == '__main__':
     unittest.main()

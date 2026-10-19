@@ -183,7 +183,8 @@ class Client:
                 try:
                     jsonschema.validate(saved['data'], schema)
                     valider(saved['data'])
-                    self.appels[key] = saved['usage']
+                    # Réponse déjà payée lors d'une préparation précédente : marquée pour ne pas être recomptée.
+                    self.appels[key] = {**saved['usage'], 'cached': True}
                     return saved['data']
                 except (KeyError, ValueError, jsonschema.ValidationError):
                     pass
