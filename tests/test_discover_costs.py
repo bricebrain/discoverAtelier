@@ -84,7 +84,7 @@ class RegistreCouts(unittest.TestCase):
         # Le mois Deepgram vient du registre du budget (coûts réellement engagés) : rien d'engagé ici.
         mois = data['months'][0]
         self.assertEqual((mois['month'], mois['geminiUsd'], mois['openaiUsd'], mois['deepgramUsd']), ('2026-10', 1.875, 0.25, 0.0))
-        self.assertAlmostEqual(mois['totalUsd'], 1.45)
+        self.assertAlmostEqual(mois['totalUsd'], 2.125)
         ligne = data['preparations'][0]
         self.assertEqual((ligne['ttsProvider'], ligne['voice'], ligne['deepgramUsd'], ligne['deepgramCharacters']),
                          ('deepgram', 'cora', 0.09, 3000))
@@ -113,7 +113,7 @@ class RegistreCouts(unittest.TestCase):
         Budget(self.root / '.deepgram', month=lambda: '2026-10').reserve('fragment-1', 100_000, 10)  # 3 USD engagés
         mois = discover_costs.rapport(self.root, {'tts': {}}, maintenant=MAINTENANT)['months'][0]
         self.assertEqual((mois['geminiUsd'], mois['openaiUsd'], mois['deepgramUsd']), (1.875, 0.25, 3.0))
-        self.assertAlmostEqual(mois['totalUsd'], 4.45)
+        self.assertAlmostEqual(mois['totalUsd'], 5.125)
 
     def test_voix_repli_et_jetons_sont_consignes(self):
         self.audio(provider='kokoro', requestedProvider='deepgram', voice='cora', fallbackReason='Clé Deepgram absente.',
