@@ -6,6 +6,7 @@ import adaptation
 import discover_audio
 import discover_speech
 import discover_cible
+import discover_englishfluency
 import discover_costs
 import discover_review
 import discover_vocabulary
@@ -106,4 +107,10 @@ def preparer(item, source, root, etape, verifier, config, client=None):
         discover_costs.enregistrer(item, client.appels, folder, root.parent, config)
     except Exception as erreur:
         print('Coûts de la préparation non enregistrés : ' + str(erreur)[:200])
+    try:  # Destination indépendante, après clôture du bail Discover ; reprise sans ce bail.
+        bridge = discover_englishfluency.publier(manifest, paths, variant_key(item['options']), folder, config)
+        if bridge['status'] == 'failed':
+            print('Discover publié ; envoi EnglishFluency à reprendre localement.')
+    except Exception:
+        print('Discover publié ; pont EnglishFluency indisponible. Vérifier configuration et fichiers locaux.')
     return result

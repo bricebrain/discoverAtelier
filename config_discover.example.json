@@ -11,6 +11,12 @@
     "gpt-5-mini": {"inputUsdPerMillion": 0.25, "outputUsdPerMillion": 2}
   },
   "autoPublish": true,
+  "englishFluency": {
+    "enabled": false,
+    "workerUrl": "https://englishfluency.<compte>.workers.dev",
+    "apiSecret": "",
+    "profileId": "default"
+  },
   "deepgramApiKey": "",
   "tts": {
     "provider": "deepgram",
