@@ -220,6 +220,14 @@
 
   <section id="panel-checks" role="tabpanel" aria-labelledby="tab-checks" hidden>
     <p class="muted small">Le contrôle de fidélité compare chaque version aux passages sources. Les versions signalées sont publiées automatiquement et marquées « non relue » dans l’app ; leur rapport reste consultable ici.</p>
+    <details class="card" id="costs-panel" open>
+      <summary style="cursor:pointer;font-weight:650">Coûts · IA et voix</summary>
+      <div id="costs-months" style="display:grid;gap:6px;margin-top:12px" aria-live="polite"></div>
+      <p class="small muted" id="costs-budget"></p>
+      <p class="small muted" id="costs-note"></p>
+      <h3 style="margin-top:12px">Dernières préparations</h3>
+      <div id="costs-preparations" style="display:grid;gap:6px"></div>
+    </details>
     <div id="reviews"></div>
     <section id="review-detail" class="card" hidden></section>
   </section>

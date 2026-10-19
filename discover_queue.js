@@ -335,6 +335,42 @@ async function loadShows() {
   } catch { /* le bandeau des épisodes signalera l'erreur */ }
 }
 
+// ── Coûts : IA et voix, par mois et par préparation ──────────────────────────
+const usd = (n) => Number(n || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) + ' $';
+const VOIX_COUTS = { cora: 'Cora', vesta: 'Vesta', draco: 'Draco' };
+const moisLabel = (m) => {
+  const [annee, mois] = m.split('-').map(Number);
+  return new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+    .format(new Date(Date.UTC(annee, mois - 1, 1)));
+};
+function renderCosts(data) {
+  $('costs-months').replaceChildren(...data.months.map((m) => {
+    const p = el('p');
+    p.append(el('strong', moisLabel(m.month) + ' : '));
+    p.append(document.createTextNode(`Gemini ${usd(m.geminiUsd)} · OpenAI ${usd(m.openaiUsd)} · Deepgram ${usd(m.deepgramUsd)} — total ${usd(m.totalUsd)}`));
+    return p;
+  }));
+  const b = data.budget;
+  $('costs-budget').textContent = `Plafond Deepgram (${b.month}) : ${usd(b.engagedUsd)} engagés sur ${usd(b.limitUsd)} — ${usd(b.remainingUsd)} restants.`
+    + (b.uncertainRequests ? ` ${b.uncertainRequests} appel(s) sans résultat certain.` : '');
+  $('costs-note').textContent = (data.pricingConfigured
+    ? 'Tarifs personnalisés (clé « pricing » de config_discover.json).'
+    : 'Tarifs par défaut à vérifier : ajustables sans toucher au code via la clé « pricing » de config_discover.json (USD par million de jetons, entrée et sortie, par modèle).')
+    + ' Estimations locales : les réponses IA déjà en cache et les fragments audio déjà produits ne sont pas repayés.';
+  $('costs-preparations').replaceChildren(...(data.preparations.length ? data.preparations.map((p) => {
+    const row = el('p', '', 'small');
+    const date = p.createdAt ? new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(p.createdAt)) : '';
+    const voix = p.ttsProvider === 'deepgram' ? `Deepgram ${VOIX_COUTS[p.voice] || p.voice}` : 'Heart (local)';
+    const jetons = p.geminiTokens || p.openaiTokens ? ` · ${((p.geminiTokens + p.openaiTokens) / 1000).toLocaleString('fr-FR')} k jetons IA` : '';
+    row.textContent = `${p.title || 'Préparation'} — ${date} · Gemini ${usd(p.geminiUsd)} · OpenAI ${usd(p.openaiUsd)} · Deepgram ${usd(p.deepgramUsd)} — total ${usd(p.totalUsd)}${jetons} · voix : ${voix}${p.fallbackReason ? ' · repli : ' + p.fallbackReason : ''}`;
+    return row;
+  }) : [el('p', 'Aucune préparation aboutie enregistrée pour l’instant.', 'small muted')]));
+}
+async function loadCosts() {
+  try { renderCosts(await api('costs')); }
+  catch (error) { $('costs-months').replaceChildren(el('p', error.message, 'small muted')); }
+}
+
 // ── Préparations ─────────────────────────────────────────────────────────────
 function steps(item) {
   const wrap = el('div', null, 'steps');
@@ -457,7 +493,7 @@ function selectTab(name) {
     $('tab-' + t).setAttribute('aria-selected', String(t === name));
     $('panel-' + t).hidden = t !== name;
   }
-  if (name === 'checks') void reviews((count) => setChecks(count));
+  if (name === 'checks') { void reviews((count) => setChecks(count)); void loadCosts(); }
   try { localStorage.setItem('discover.tab', name); } catch { /* facultatif */ }
 }
 function setChecks(count) {
@@ -521,3 +557,4 @@ void refreshQueue();
 void reviews((count) => setChecks(count));
 setInterval(refreshQueue, 4000);
 setInterval(() => reviews((count) => setChecks(count)), 20000);
+setInterval(loadCosts, 30000);
