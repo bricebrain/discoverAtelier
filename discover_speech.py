@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import discover_audio
+from discover_citations import nettoyer_segments
 import discover_deepgram
 import pipeline
 from discover_ai import empreinte
@@ -19,6 +20,7 @@ class Session:
         self.provider, self.speeds = self.config['tts']['provider'], None
         self.reason = None
         self.ledger = Budget(self.root / '.deepgram')
+        scripts = [nettoyer_segments(script) for script in scripts]
         parts = [part for script in scripts for part in discover_deepgram.plan(
             script, self.root / '.deepgram', self.config['tts']['voice'], self.config['tts']['speed'])]
         missing = {p['key']: p for p in parts if not p['cached']}
@@ -53,6 +55,7 @@ class Session:
         return self.speeds
 
     def generate(self, segments, folder, name, verifier, speeds=None):
+        segments = nettoyer_segments(segments)
         if self.provider == 'deepgram':
             try:
                 result = self.deepgram(segments, Path(folder), name, verifier)

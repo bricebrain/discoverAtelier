@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 
 import adaptation
+from discover_citations import nettoyer_segments
 import discover_audio
 import discover_speech
 import discover_cible
@@ -36,6 +37,7 @@ def preparer(item, source, root, etape, verifier, config, client=None):
     if prepared['evaluation']['verdict'] == 'rejected' and not edited:
         prepared = adaptation.generer(client, sources, item['options'], etape, revision=revision, frequent=frequent, feedback=prepared['evaluation']['judge'], dossier=dossier, contexte=contexte)
     if edited:
+        edited = {**edited, 'segments': nettoyer_segments(edited['segments'], {s['id'] for s in sources})}
         valider_script(edited, {s['id'] for s in sources}, item['options']['style'])
         prepared['script'] = edited
         prepared['evaluation'] = adaptation.juger_script(client, edited, sources, item['options'], prepared['facts'], frequent)
@@ -46,6 +48,7 @@ def preparer(item, source, root, etape, verifier, config, client=None):
     faithful, faithful_audio = None, None
     if item['options']['faithful']:
         faithful = pipeline.lire_json(str(folder / 'edited-faithful.json')) or adaptation.traduire_fidele(client, sources, etape, revision=revision)
+        faithful = nettoyer_segments(faithful, {s['id'] for s in sources})
         faithful_judge = adaptation.juger_fidele(client, sources, faithful)
         prepared['faithful'] = faithful
         prepared['evaluation']['faithfulJudge'] = faithful_judge
