@@ -113,6 +113,11 @@ def request(text, model, speed, api_key, opener=None):
             if len(raw) > MAX_AUDIO_BYTES or not response.headers.get('Content-Type', '').startswith('audio/'):
                 raise DeepgramIndisponible('Réponse audio Deepgram invalide.')
             return pcm(raw)
+    except urllib.error.HTTPError as error:
+        # Code seul : ni corps de réponse ni clé API dans le message.
+        raise DeepgramIndisponible(f'Deepgram a refusé le fragment (HTTP {error.code}) ; appel conservé dans le budget par prudence.') from error
+    except TimeoutError as error:
+        raise DeepgramIndisponible('Deepgram : délai de réponse dépassé ; appel conservé dans le budget par prudence.') from error
     except (urllib.error.URLError, TimeoutError, OSError) as error:
         # Pas de corps ni de clé API dans les erreurs ; aucune relance HTTP automatique.
         raise DeepgramIndisponible('Deepgram indisponible ; appel conservé dans le budget par prudence.') from error
