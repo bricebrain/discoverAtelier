@@ -129,28 +129,39 @@ def fragment(text, root, config, verifier, transport=None):
     path = cache_path(root, key)
     if cached(root, key):
         return path
-    verifier()
     budget = Budget(root)
-    budget.reserve(key, characters(text), config['tts']['monthlyLimitUsd'])
-    try:
-        data = (transport or request)(text, 'aura-2-' + voice + '-en', speed, config['deepgramApiKey'])
-        if not data or len(data) % 2 or len(data) > MAX_AUDIO_BYTES:
-            raise DeepgramIndisponible('Réponse audio Deepgram invalide.')
-        path.parent.mkdir(parents=True, exist_ok=True)
-        temp = path.with_suffix('.part.wav')
+    # Un seul nouvel essai, réservé à part dans le budget : un appel sans réponse a peut-être été facturé.
+    for attempt, ledger_key in enumerate((key, key + ':retry')):
+        verifier()
+        budget.reserve(ledger_key, characters(text), config['tts']['monthlyLimitUsd'])
         try:
-            with wave.open(str(temp), 'wb') as audio:
-                audio.setparams((1, 2, RATE, 0, 'NONE', 'not compressed'))
-                audio.writeframes(data)
-            temp.replace(path)
-        finally:
-            temp.unlink(missing_ok=True)
-        pipeline.ecrire_json(str(path.with_suffix('.json')), {'sha256': hashlib.sha256(path.read_bytes()).hexdigest()})
-        budget.finish(key, True)
+            data = (transport or request)(text, 'aura-2-' + voice + '-en', speed, config['deepgramApiKey'])
+            if not data or len(data) % 2 or len(data) > MAX_AUDIO_BYTES:
+                raise DeepgramIndisponible('Réponse audio Deepgram invalide.')
+        except DeepgramIndisponible:
+            budget.finish(ledger_key, False)
+            if attempt:
+                raise
+            continue
+        except BaseException:
+            budget.finish(ledger_key, False)
+            raise
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            temp = path.with_suffix('.part.wav')
+            try:
+                with wave.open(str(temp), 'wb') as audio:
+                    audio.setparams((1, 2, RATE, 0, 'NONE', 'not compressed'))
+                    audio.writeframes(data)
+                temp.replace(path)
+            finally:
+                temp.unlink(missing_ok=True)
+            pipeline.ecrire_json(str(path.with_suffix('.json')), {'sha256': hashlib.sha256(path.read_bytes()).hexdigest()})
+        except BaseException:
+            budget.finish(ledger_key, False)
+            raise
+        budget.finish(ledger_key, True)
         return path
-    except BaseException:
-        budget.finish(key, False)
-        raise
 
 
 def part_config(segment, config):

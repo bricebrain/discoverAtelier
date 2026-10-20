@@ -14,7 +14,7 @@ from discover_tts_settings import settings
 
 
 class Session:
-    def __init__(self, scripts, root, config, folder, title=''):
+    def __init__(self, scripts, root, config, folder, title='', long_minutes=None):
         self.root, self.folder = Path(root), Path(folder)
         self.config = {**config, 'tts': settings(config)}
         self.provider, self.speeds = self.config['tts']['provider'], None
@@ -29,7 +29,11 @@ class Session:
                          'voice': self.config['tts']['voice'], 'characters': sum(p['characters'] for p in parts),
                          'newCharacters': needed, 'estimatedUsd': needed * MICRODOLLARS_PER_CHARACTER / 1_000_000,
                          'createdAt': datetime.now(timezone.utc).isoformat(), 'status': 'estimated'}
-        if self.provider == 'deepgram':
+        if self.provider == 'deepgram' and long_minutes:
+            # Choix délibéré, pas une panne : les longues sources restent sur le Mac en voix locale.
+            self.provider, self.reason = 'kokoro', f'Source longue ({round(long_minutes)} min) : voix locale Kokoro, sans coût Deepgram.'
+            self.estimate.update(provider='kokoro', fallbackReason=self.reason, estimatedUsd=0)
+        elif self.provider == 'deepgram':
             if needed and not config.get('deepgramApiKey'):
                 self.fallback('Clé Deepgram absente.')
             elif self.estimate['estimatedUsd'] > self.ledger.status(self.config['tts']['monthlyLimitUsd'])['remainingUsd'] + 1e-9:

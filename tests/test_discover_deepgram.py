@@ -105,8 +105,24 @@ class AudioTests(unittest.TestCase):
             dg.fragment('Hello.', self.root, self.config, lambda: None, transport)
         with self.assertRaises(AppelIncertain):
             dg.fragment('Hello.', self.root, self.config, lambda: None, transport)
-        self.assertEqual(transport.call_count, 1)
-        self.assertGreater(Budget(self.root).status(10)['engagedUsd'], 0)
+        self.assertEqual(transport.call_count, 2)  # un seul nouvel essai, puis plus jamais automatiquement
+        self.assertEqual(Budget(self.root).status(10)['requests'], 2)  # chaque envoi est engagé dans le budget
+
+    def test_one_retry_recovers_a_lost_fragment(self):
+        transport = mock.Mock(side_effect=[dg.DeepgramIndisponible('Lost'), b'\0\0' * 2400])
+        path = dg.fragment('Hello again.', self.root, self.config, lambda: None, transport)
+        self.assertTrue(path.exists())
+        self.assertEqual(transport.call_count, 2)
+        self.assertEqual(Budget(self.root).status(10)['uncertainRequests'], 1)
+
+    def test_long_source_uses_local_voice_without_deepgram_cost(self):
+        session = discover_speech.Session([[{'text': 'Hello long source.'}]], self.root, self.config,
+                                          self.root / 'prepared-long', long_minutes=68)
+        self.assertEqual(session.provider, 'kokoro')
+        self.assertIn('Source longue (68 min)', session.reason)
+        self.assertEqual(session.estimate['estimatedUsd'], 0)
+        short = discover_speech.Session([[{'text': 'Hello short source.'}]], self.root, self.config, self.root / 'prepared-short')
+        self.assertEqual(short.provider, 'deepgram')
 
     def test_corrupted_cache_is_not_paid_again_automatically(self):
         dg.fragment('Hello.', self.root / '.deepgram', self.config, lambda: None, lambda *args: b'\0\0' * 12000)
@@ -173,7 +189,7 @@ class AudioTests(unittest.TestCase):
         script = [{'id': f'p{i}', 'text': f'Paragraph number {i}.'} for i in range(20)]
         with self.assertRaises(dg.DeepgramIndisponible):
             dg.assemble(script, self.root, self.config, self.root / 'f.wav', self.root / 'f.json', lambda: None, transport)
-        self.assertLessEqual(len(calls), dg.PARALLEL_FRAGMENTS)
+        self.assertLessEqual(len(calls), 2 * dg.PARALLEL_FRAGMENTS)  # un nouvel essai par fragment au plus
         self.assertFalse((self.root / 'f.wav').exists())
 
     def test_default_voice_and_speed_are_relaxed(self):

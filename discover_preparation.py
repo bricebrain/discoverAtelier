@@ -17,6 +17,13 @@ from discover_ai import Client, empreinte
 from discover_evaluation import evaluer, valider_script
 from discover_podcast_bundle import construire, content_id as identifiant_contenu, variant_key
 
+# Au-delà, la voix est faite localement par Kokoro (aucun coût Deepgram) et le plafond Gemini suit la longueur.
+LONG_SOURCE_MINUTES = 30
+
+
+def source_minutes(sources):
+    return max((s.get('endMs') or 0 for s in sources), default=0) / 60_000
+
 
 def preparer(item, source, root, etape, verifier, config, client=None):
     root = Path(root)
@@ -29,6 +36,11 @@ def preparer(item, source, root, etape, verifier, config, client=None):
     if dossier:
         sources = [{k: s[k] for k in ('id', 'text', 'source') if k in s} for s in sources]
     revision = (pipeline.lire_json(str(folder / 'revision.json')) or {}).get('revision', 0)
+    minutes = source_minutes(sources)
+    words = sum(len(s['text'].split()) for s in sources)
+    if isinstance(getattr(client, 'max_calls', None), int):  # client réel (les tests passent parfois un faux)
+        client.max_calls = max(client.max_calls, words // 60)
+        client.max_tokens = max(client.max_tokens, words * 50)
     frequent = discover_vocabulary.charger(root.parent)
     edited = pipeline.lire_json(str(folder / 'edited.json'))
     contexte = adaptation.contexte_note(item['source'])  # article attribué à sa publication, ou note personnelle
@@ -73,7 +85,8 @@ def preparer(item, source, root, etape, verifier, config, client=None):
     automatique = bool(config.get('autoPublish', True))
     discover_review.exiger(item, prepared, source, folder, automatique)
     speech = discover_speech.Session([prepared['script']['segments']] + ([faithful] if faithful else []),
-                                     root.parent, config, folder, item['source'].get('title', ''))
+                                     root.parent, config, folder, item['source'].get('title', ''),
+                                     long_minutes=minutes if minutes > LONG_SOURCE_MINUTES else None)
     etape('tts')
     speeds = speech.kokoro_speeds(verifier) if speech.provider == 'kokoro' else {}
     audio = speech.generate(prepared['script']['segments'], folder, variant_key(item['options']), verifier, speeds)

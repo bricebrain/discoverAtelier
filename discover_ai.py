@@ -91,6 +91,8 @@ class Client:
         self.transport = transport or self._generer
         self.transport_openai = transport_openai or self._generer_openai
         self.appels = {}
+        # Garde-fou par préparation ; relevé pour les longues sources (voir discover_preparation).
+        self.max_calls, self.max_tokens = 80, 240_000
 
     def _fournisseurs(self, juge):
         """Gemini d'abord, OpenAI en secours ; l'inverse pendant une période de repli."""
@@ -188,7 +190,7 @@ class Client:
                     return saved['data']
                 except (KeyError, ValueError, jsonschema.ValidationError):
                     pass
-        if len(self.appels) >= 80 or sum(v.get('inputTokens', 0) + v.get('outputTokens', 0) for v in self.appels.values()) > 240_000:
+        if len(self.appels) >= self.max_calls or sum(v.get('inputTokens', 0) + v.get('outputTokens', 0) for v in self.appels.values()) > self.max_tokens:
             raise RuntimeError('Budget maximal de préparation atteint. Étapes conservées ; vérifier la demande avant de réessayer.')
         erreurs = []
         for nom, modele, transport in fournisseurs:
