@@ -126,11 +126,13 @@ Do not mention podcast housekeeping or describe the editing process. Return JSON
         if not target:
             prompt += donnees({'originalPassages': groups[index]})
         paragraph_count = max(3, round((target or expected) / 120))
+        # Récit intégral : un texte simplifié (A2, B1) est naturellement plus court que la source ; le minimum suit le niveau.
+        minimum_ratio = {'A2': .55, 'B1': .62}.get(options['level'], .7)
         trusted = f"\nTASK SETTINGS: coverage={options['coverage']}, CEFR={options['level']}, style={options['style']}.\n"
         if target:
             trusted += f'Write {paragraph_count} paragraphs and {target} English words in total (minimum {round(.8*target)}, maximum {round(1.2*target)}). Each paragraph needs about {round(target/paragraph_count)} ENGLISH words, plus its complete French translation. Use substantive source details and explanations, never filler. This is a length requirement, not a maximum.\n'
         if not target:
-            trusted += f'Full retelling: write about {expected} English words in {paragraph_count} paragraphs (minimum {round(.7*expected)} words). Retell the originalPassages using the extraction as a checklist. Retain minor material details, every example, chronology, qualifications and outcomes. Do not compress events into a synopsis. Never add generic commentary, emotional description, future events, character judgments or invented explanations to meet the length. Restore actual source details instead.\n'
+            trusted += f'Full retelling: write about {expected} English words in {paragraph_count} paragraphs (minimum {round(minimum_ratio*expected)} words). Retell the originalPassages using the extraction as a checklist. Retain minor material details, every example, chronology, qualifications and outcomes. Do not compress events into a synopsis. Never add generic commentary, emotional description, future events, character judgments or invented explanations to meet the length. Restore actual source details instead.\n'
         if options['level'] in ('A2','B1'):
             trusted += 'Use short, simple sentences and common vocabulary. Explain necessary technical terms in plain language.\n'
         if options['style']=='dialogue':
@@ -143,8 +145,8 @@ Do not mention podcast housekeeping or describe the editing process. Return JSON
             n = sum(len(mots(s['text'])) for s in obj['segments'])
             if target and not 0.8 * target <= n <= 1.2 * target:
                 raise ValueError(f'Word count {n}; expected {target} ±20%.')
-            if target is None and n < .7 * expected:
-                raise ValueError(f'Full retelling too short: {n} words; minimum {round(.7*expected)}. Restore all extracted details and examples in complete sentences.')
+            if target is None and n < minimum_ratio * expected:
+                raise ValueError(f'Full retelling too short: {n} words; minimum {round(minimum_ratio*expected)}. Restore all extracted details and examples in complete sentences.')
             if target is None and not substantive <= {ref for s in obj['segments'] for ref in s['sourceSegments']}:
                 raise ValueError('Full coverage omits non-promotional source segments. Retell every substantive source passage, including the ending.')
         script_schema = copy.deepcopy(SCRIPT)
