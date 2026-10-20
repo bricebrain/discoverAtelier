@@ -92,12 +92,12 @@ class AudioTests(unittest.TestCase):
         self.assertEqual(transport.call_args_list[0].args[1], 'aura-2-cora-en')
         self.assertEqual(transport.call_args_list[1].args[1], 'aura-2-draco-en')
         self.assertEqual(json.loads((self.root / 'two.json').read_text()), [
-            {'id': 'p0001', 'startMs': 650, 'endMs': 1150}, {'id': 'p0002', 'startMs': 2050, 'endMs': 2550}])
-        self.assertEqual(result['durationMs'], 2550)
+            {'id': 'p0001', 'startMs': 300, 'endMs': 800}, {'id': 'p0002', 'startMs': 1400, 'endMs': 1900}])
+        self.assertEqual(result['durationMs'], 1900)
         with wave.open(str(self.root / 'two.wav')) as audio:
-            self.assertEqual(audio.getnframes(), 61200)
+            self.assertEqual(audio.getnframes(), 45600)
             frames = audio.readframes(audio.getnframes())
-            self.assertEqual(frames[:31200], b'\0' * 31200)
+            self.assertEqual(frames[:14400], b'\0' * 14400)
 
     def test_failure_does_not_repeat_a_potentially_billed_request(self):
         transport = mock.Mock(side_effect=dg.DeepgramIndisponible('Unavailable'))
@@ -148,8 +148,8 @@ class AudioTests(unittest.TestCase):
         self.assertEqual(Budget(self.root).status(10)['engagedUsd'], 0)
 
     def test_default_voice_and_speed_are_relaxed(self):
-        self.assertEqual(settings.settings({})['voice'], 'vesta')
-        self.assertEqual(settings.settings({})['speed'], .9)
+        self.assertEqual(settings.settings({})['voice'], 'arcas')
+        self.assertEqual(settings.settings({})['speed'], 1.0)
 
     def test_settings_validate_budget_and_normalize_speed(self):
         self.assertEqual(settings.settings({'tts': {'speed': 1}})['speed'], 1.0)

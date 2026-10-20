@@ -16,8 +16,8 @@ from discover_tts_budget import Budget
 RATE = 24000
 MAX_CHARACTERS = 1800
 MAX_AUDIO_BYTES = 12_000_000
-INTRO_PAUSE_SECONDS = .65
-PARAGRAPH_PAUSE_SECONDS = .9
+INTRO_PAUSE_SECONDS = .3
+PARAGRAPH_PAUSE_SECONDS = .6
 
 
 class DeepgramIndisponible(RuntimeError):
@@ -81,7 +81,9 @@ def cached(root, key):
 
 
 def voice_for(segment, voice):
-    return ('cora' if voice == 'draco' else 'draco') if segment.get('speaker') == 'Guest' else voice
+    # L'invité du dialogue prend une voix contrastée (une voix féminine face à Arcas).
+    guest = {'draco': 'cora', 'arcas': 'thalia'}.get(voice, 'draco')
+    return guest if segment.get('speaker') == 'Guest' else voice
 
 
 def plan(segments, root, voice, speed):
