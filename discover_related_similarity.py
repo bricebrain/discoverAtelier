@@ -5,6 +5,8 @@ import math
 import re
 from datetime import datetime
 
+from discover_related_groups import coherent_groups
+
 
 def text(item):
     raw = (item.get('title') or '') + ' ' + (item.get('excerpt') or '')
@@ -46,14 +48,8 @@ def within(a, b, hours):
 
 def calculate(rows, config, judge, verifier=lambda: None, pairs=None):
     neighbors = {k: [] for k, _, _, _ in rows}
-    parent = {k: k for k in neighbors}
     by_key = {k: i for k, i, _, _ in rows}
-    centrality = {k: 0 for k in neighbors}
-    def root(k):
-        while parent[k] != k:
-            parent[k] = parent[parent[k]]
-            k = parent[k]
-        return k
+    links = []
     by_row = {k: (i, f) for k, i, f, _ in rows}
     if pairs is None:
         pairs = ((ka, kb, cosine(va, vb)) for pos, (ka, a, fa, va) in enumerate(rows)
@@ -79,17 +75,19 @@ def calculate(rows, config, judge, verifier=lambda: None, pairs=None):
         if not valid and score >= config.get('relatedDoubtScore', .60):
             valid = judge(a, b, fa, fb)
         if valid:
-            parent[root(kb)] = root(ka)
-            centrality[ka] += score
-            centrality[kb] += score
-    components = {}
-    for k in parent:
-        components.setdefault(root(k), []).append(k)
+            links.append((ka, kb, score))
+    components = coherent_groups(by_key, links, verifier)
+    weights = {}
+    for a, b, score in links:
+        pair = tuple(sorted((a, b)))
+        weights[pair] = max(score, weights.get(pair, score))
     groups = []
-    for members in components.values():
-        if len(members) < 2:
-            continue
-        central = max(members, key=lambda k: centrality[k])
+    for members in components:
+        verifier()
+        def centrality(key):
+            verifier()
+            return (-math.fsum(weights[tuple(sorted((key, other)))] for other in members if other != key), key)
+        central = min(members, key=centrality)
         gid = hashlib.sha256('|'.join(sorted(members)).encode()).hexdigest()[:32]
         groups.append({'groupId': gid, 'members': [{'type': by_key[k]['type'], 'id': by_key[k]['id']} for k in members],
                        'title': (by_key[central].get('title') or '')[:300],

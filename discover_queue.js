@@ -493,7 +493,7 @@ function selectTab(name) {
     $('tab-' + t).setAttribute('aria-selected', String(t === name));
     $('panel-' + t).hidden = t !== name;
   }
-  if (name === 'checks') { void reviews((count) => setChecks(count)); void loadCosts(); }
+  if (name === 'checks') { void reviews((count) => setChecks(count)); void loadCosts(); void loadVocabulary(); }
   try { localStorage.setItem('discover.tab', name); } catch { /* facultatif */ }
 }
 function setChecks(count) {
@@ -567,3 +567,20 @@ async function loadRelated() {
 }
 void loadRelated();
 setInterval(loadRelated, 30000);
+
+async function loadVocabulary() {
+  try {
+    const s = await api('vocabulary/status');
+    const phases = { never: 'Aucun passage', running: 'Envoi en cours', success: 'À jour', warning: 'Reprise nécessaire', error: 'Passage différé', interrupted: 'Passage interrompu' };
+    const counts = s.lastReport;
+    const formatDate = (value) => value ? new Date(value).toLocaleString('fr-FR') : 'aucun';
+    $('vocabulary-status').textContent = `${s.autoEnabled ? 'Automatique activé' : 'Automatique désactivé'} · ${phases[s.phase] || 'État inconnu'}`;
+    $('vocabulary-dates').textContent = `Dernière tentative : ${formatDate(s.lastAttemptAt)} · Dernier passage terminé : ${formatDate(s.lastRunAt)}`;
+    $('vocabulary-sent').textContent = `Dernier envoi confirmé : ${formatDate(s.lastSentAt)}`;
+    const count = (n, singular, plural) => `${n} ${n === 1 ? singular : plural}`;
+    $('vocabulary-counts').textContent = counts ? [count(counts.sent, 'envoyé', 'envoyés'), count(counts.already_known, 'déjà connu', 'déjà connus'),
+      count(counts.failed, 'échec', 'échecs'), count(counts.unacknowledged, 'accusé manquant', 'accusés manquants')].join(' · ') : 'Aucun passage enregistré.';
+  } catch (error) { $('vocabulary-status').textContent = error.message; }
+}
+void loadVocabulary();
+setInterval(loadVocabulary, 30000);

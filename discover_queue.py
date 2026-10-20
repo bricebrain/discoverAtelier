@@ -8,6 +8,7 @@ from pathlib import Path
 
 import bundles
 import discover_related
+import discover_vocabulary_sync
 import discover_articles
 import discover_cible
 import discover_source
@@ -196,6 +197,12 @@ class FileDiscover:
                             discover_related.run(self.dossier, self.config, self.requete, verifier=self.verifier)
                         except Exception:
                             logging.getLogger(__name__).warning('Rapprochement différé : vérifier le Worker, le cache local et la taille des groupes.')
+                    if not self.source_only:
+                        try:
+                            discover_vocabulary_sync.run(self.dossier, self.config, self.requete,
+                                                         busy=self.item is not None, verifier=self.verifier)
+                        except Exception:
+                            logging.getLogger(__name__).warning('Synchronisation des mots différée : vérifier le cache local et la connexion.')
                     if self.stop.wait(15):
                         break
                     continue
