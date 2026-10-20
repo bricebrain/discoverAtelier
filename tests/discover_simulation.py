@@ -75,7 +75,7 @@ class FauxIA:
         elif 'tooShortForSubject' in props:
             source = json.loads(prompt.split('<source_data>')[1].split('</source_data>')[0])
             facts = source['extraction']['items']
-            paragraphs = schema['properties']['segments']['minItems']
+            paragraphs = max(3, schema['properties']['segments']['minItems'])  # le schéma donne une fourchette ; le quiz factice vise 3 paragraphes
             groups = [facts[i::paragraphs] or [facts[i % len(facts)]] for i in range(paragraphs)]
             data = {'segments': [{'text': ' '.join(f['text'] for f in group), 'fr': 'Le plan vise à réduire la circulation.',
                                   'speaker': 'Narrator', 'sourceSegments': [r for f in group for r in f['sourceSegments']]}

@@ -152,7 +152,9 @@ Do not mention podcast housekeeping or describe the editing process. Return JSON
         script_schema = copy.deepcopy(SCRIPT)
         script_schema['properties']['segments']['items']['properties']['sourceSegments']['items'] = {'type':'string','enum':sorted(allowed)}
         if paragraph_count:
-            script_schema['properties']['segments'].update(minItems=paragraph_count,maxItems=paragraph_count)
+            # Fourchette plutôt que compte exact : un paragraphe de plus ou de moins ne doit pas faire échouer trois essais.
+            script_schema['properties']['segments'].update(minItems=max(2, paragraph_count - max(1, paragraph_count // 4)),
+                                                           maxItems=paragraph_count + max(2, paragraph_count // 3))
         script = client.demander('write-' + str(index), prompt, script_schema, validate_script, cache_schema=SCRIPT)
         script = {**script, 'segments': nettoyer_segments(script['segments'], allowed)}
         scripts.append(script)

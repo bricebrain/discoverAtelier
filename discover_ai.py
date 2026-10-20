@@ -220,7 +220,14 @@ class Client:
             try:
                 jsonschema.validate(result['data'], schema)
                 valider(result['data'])
-            except (ValueError, jsonschema.ValidationError) as erreur:
+            except jsonschema.ValidationError as erreur:
+                # Le message par défaut recopie toute la valeur fautive ; on garde le chemin et la règle violée.
+                where = '/'.join(str(p) for p in erreur.absolute_path) or 'root'
+                found = f' (found {len(erreur.instance)})' if isinstance(erreur.instance, (list, str)) and erreur.validator in ('minItems', 'maxItems', 'minLength', 'maxLength') else ''
+                last_error = f'{where}: {erreur.validator} {erreur.validator_value!r}{found}'[:300]
+                correction = '\nCORRECTION REQUIRED: ' + last_error + '\nPrevious invalid output: ' + json.dumps(result['data'], ensure_ascii=False) + '\nReturn a complete corrected JSON, no commentary.'
+                continue
+            except ValueError as erreur:
                 last_error = str(erreur).splitlines()[0][:300]
                 correction = '\nCORRECTION REQUIRED: ' + last_error + '\nPrevious invalid output: ' + json.dumps(result['data'], ensure_ascii=False) + '\nReturn a complete corrected JSON, no commentary.'
                 continue
