@@ -16,6 +16,8 @@ from discover_tts_budget import Budget
 RATE = 24000
 MAX_CHARACTERS = 1800
 MAX_AUDIO_BYTES = 12_000_000
+INTRO_PAUSE_SECONDS = .65
+PARAGRAPH_PAUSE_SECONDS = .9
 
 
 class DeepgramIndisponible(RuntimeError):
@@ -149,8 +151,15 @@ def assemble(segments, root, config, output, timings_path, verifier, transport=N
     try:
         with wave.open(str(temporary), 'wb') as writer:
             writer.setparams((1, 2, RATE, 0, 'NONE', 'not compressed'))
-            for segment in segments:
+            intro = round(RATE * INTRO_PAUSE_SECONDS)
+            writer.writeframesraw(b'\0' * (intro * 2))
+            cursor += intro
+            for index, segment in enumerate(segments):
                 verifier()
+                if index:
+                    silence = round(RATE * PARAGRAPH_PAUSE_SECONDS)
+                    writer.writeframesraw(b'\0' * (silence * 2))
+                    cursor += silence
                 start = cursor
                 for text in chunks(segment['text']):
                     part_config = {**config, 'tts': {**config['tts'], 'voice': voice_for(segment, config['tts']['voice'])}}
@@ -160,9 +169,6 @@ def assemble(segments, root, config, output, timings_path, verifier, transport=N
                     writer.writeframesraw(data)
                     cursor += len(data) // 2
                 timings.append({'id': segment['id'], 'startMs': round(start / RATE * 1000), 'endMs': round(cursor / RATE * 1000)})
-                silence = round(RATE * .35)
-                writer.writeframesraw(b'\0' * (silence * 2))
-                cursor += silence
         verifier()
         temporary.replace(output)
         pipeline.ecrire_json(str(timings_path), timings)

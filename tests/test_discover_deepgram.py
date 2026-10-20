@@ -27,7 +27,7 @@ class AudioTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
-        self.config = {'deepgramApiKey': 'fake-key', 'tts': settings.settings({'tts': {'provider': 'deepgram'}})}
+        self.config = {'deepgramApiKey': 'fake-key', 'tts': settings.settings({'tts': {'provider': 'deepgram', 'voice': 'cora', 'speed': 1.0}})}
         self.script = [{'id': 'p0001', 'text': 'First sentence.', 'speaker': 'Narrator'},
                        {'id': 'p0002', 'text': 'Second sentence.', 'speaker': 'Guest'}]
 
@@ -92,10 +92,12 @@ class AudioTests(unittest.TestCase):
         self.assertEqual(transport.call_args_list[0].args[1], 'aura-2-cora-en')
         self.assertEqual(transport.call_args_list[1].args[1], 'aura-2-draco-en')
         self.assertEqual(json.loads((self.root / 'two.json').read_text()), [
-            {'id': 'p0001', 'startMs': 0, 'endMs': 500}, {'id': 'p0002', 'startMs': 850, 'endMs': 1350}])
-        self.assertEqual(result['durationMs'], 1700)
+            {'id': 'p0001', 'startMs': 650, 'endMs': 1150}, {'id': 'p0002', 'startMs': 2050, 'endMs': 2550}])
+        self.assertEqual(result['durationMs'], 2550)
         with wave.open(str(self.root / 'two.wav')) as audio:
-            self.assertEqual(audio.getnframes(), 40800)
+            self.assertEqual(audio.getnframes(), 61200)
+            frames = audio.readframes(audio.getnframes())
+            self.assertEqual(frames[:31200], b'\0' * 31200)
 
     def test_failure_does_not_repeat_a_potentially_billed_request(self):
         transport = mock.Mock(side_effect=dg.DeepgramIndisponible('Unavailable'))
@@ -144,6 +146,10 @@ class AudioTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             dg.fragment('Hello', self.root, self.config, mock.Mock(side_effect=RuntimeError('cancelled')))
         self.assertEqual(Budget(self.root).status(10)['engagedUsd'], 0)
+
+    def test_default_voice_and_speed_are_relaxed(self):
+        self.assertEqual(settings.settings({})['voice'], 'vesta')
+        self.assertEqual(settings.settings({})['speed'], .9)
 
     def test_settings_validate_budget_and_normalize_speed(self):
         self.assertEqual(settings.settings({'tts': {'speed': 1}})['speed'], 1.0)

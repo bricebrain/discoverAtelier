@@ -219,7 +219,7 @@ class PreparationSimulee(unittest.TestCase):
         ligne = data['preparations'][0]
         self.assertEqual(ligne['title'], 'Episode')
         self.assertEqual(ligne['ttsProvider'], 'kokoro')  # moteur local factice : aucune dépense Deepgram
-        self.assertEqual(ligne['voice'], 'cora')
+        self.assertEqual(ligne['voice'], 'vesta')  # voix par défaut (réglage du 20 octobre)
 
     def test_les_couts_n_interrompent_pas_une_publication_reussie(self):
         with mock.patch.object(workflow.discover_costs, 'enregistrer', side_effect=RuntimeError('registre indisponible')), \

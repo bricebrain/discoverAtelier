@@ -8,7 +8,7 @@ import discover_cible
 from discover_tts_budget import Budget
 
 VOICES = {'cora': 'Cora · américain', 'vesta': 'Vesta · américain', 'draco': 'Draco · britannique'}
-DEFAULTS = {'provider': 'kokoro', 'voice': 'cora', 'monthlyLimitUsd': 10.0, 'speed': 1.0, 'fallback': True}
+DEFAULTS = {'provider': 'kokoro', 'voice': 'vesta', 'monthlyLimitUsd': 10.0, 'speed': 0.9, 'fallback': True}
 LOCK = threading.RLock()
 
 

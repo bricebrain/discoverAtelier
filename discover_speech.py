@@ -72,7 +72,8 @@ class Session:
     def deepgram(self, segments, folder, name, verifier):
         folder.mkdir(parents=True, exist_ok=True)
         options = self.config['tts']
-        signature = empreinte(['deepgram-v1', segments, options['voice'], options['speed']])
+        signature = empreinte(['deepgram-paced-v2', segments, options['voice'], options['speed'],
+                               discover_deepgram.INTRO_PAUSE_SECONDS, discover_deepgram.PARAGRAPH_PAUSE_SECONDS])
         record_path, mp3 = folder / (name + '.audio.json'), folder / (name + '.mp3')
         timings, wav = folder / (name + '.timings.json'), folder / (name + '.wav')
         record = pipeline.lire_json(str(record_path))
