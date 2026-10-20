@@ -89,8 +89,8 @@ class AudioTests(unittest.TestCase):
             result = dg.assemble(self.script, self.root, self.config, self.root / (name + '.wav'),
                                  self.root / (name + '.json'), lambda: None, transport)
         self.assertEqual(transport.call_count, 2)
-        self.assertEqual(transport.call_args_list[0].args[1], 'aura-2-cora-en')
-        self.assertEqual(transport.call_args_list[1].args[1], 'aura-2-draco-en')
+        # Les fragments partent en parallèle : l'ordre des appels n'est plus garanti, l'assemblage si.
+        self.assertEqual(sorted(c.args[1] for c in transport.call_args_list), ['aura-2-cora-en', 'aura-2-draco-en'])
         self.assertEqual(json.loads((self.root / 'two.json').read_text()), [
             {'id': 'p0001', 'startMs': 300, 'endMs': 800}, {'id': 'p0002', 'startMs': 1400, 'endMs': 1900}])
         self.assertEqual(result['durationMs'], 1900)
@@ -146,6 +146,35 @@ class AudioTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             dg.fragment('Hello', self.root, self.config, mock.Mock(side_effect=RuntimeError('cancelled')))
         self.assertEqual(Budget(self.root).status(10)['engagedUsd'], 0)
+
+    def test_fragments_are_sent_in_parallel(self):
+        import threading, time as clock
+        active, peak, lock = [0], [0], threading.Lock()
+        def transport(*args):
+            with lock:
+                active[0] += 1; peak[0] = max(peak[0], active[0])
+            clock.sleep(.05)
+            with lock:
+                active[0] -= 1
+            return b'\0\0' * 2400
+        script = [{'id': f'p{i}', 'text': f'Paragraph number {i}.'} for i in range(8)]
+        result = dg.assemble(script, self.root, self.config, self.root / 'p.wav', self.root / 'p.json', lambda: None, transport)
+        self.assertGreater(peak[0], 1)
+        self.assertLessEqual(peak[0], dg.PARALLEL_FRAGMENTS)
+        timings = json.loads((self.root / 'p.json').read_text())
+        self.assertEqual([t['id'] for t in timings], [f'p{i}' for i in range(8)])
+        self.assertEqual(result['durationMs'], 300 + 8 * 100 + 7 * 600)
+
+    def test_parallel_failure_stops_unstarted_fragments(self):
+        calls = []
+        def transport(text, *args):
+            calls.append(text)
+            raise dg.DeepgramIndisponible('panne')
+        script = [{'id': f'p{i}', 'text': f'Paragraph number {i}.'} for i in range(20)]
+        with self.assertRaises(dg.DeepgramIndisponible):
+            dg.assemble(script, self.root, self.config, self.root / 'f.wav', self.root / 'f.json', lambda: None, transport)
+        self.assertLessEqual(len(calls), dg.PARALLEL_FRAGMENTS)
+        self.assertFalse((self.root / 'f.wav').exists())
 
     def test_default_voice_and_speed_are_relaxed(self):
         self.assertEqual(settings.settings({})['voice'], 'arcas')

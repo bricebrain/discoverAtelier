@@ -1,4 +1,5 @@
 """Aura-2 : fragments en cache, un seul essai HTTP et WAV normalisé pour des timings exacts."""
+import concurrent.futures
 import hashlib
 import io
 import json
@@ -18,6 +19,8 @@ MAX_CHARACTERS = 1800
 MAX_AUDIO_BYTES = 12_000_000
 INTRO_PAUSE_SECONDS = .3
 PARAGRAPH_PAUSE_SECONDS = .6
+# Fragments envoyés en même temps ; le coût est identique, seule l'attente diminue.
+PARALLEL_FRAGMENTS = 4
 
 
 class DeepgramIndisponible(RuntimeError):
@@ -145,11 +148,52 @@ def fragment(text, root, config, verifier, transport=None):
         raise
 
 
+def part_config(segment, config):
+    return {**config, 'tts': {**config['tts'], 'voice': voice_for(segment, config['tts']['voice'])}}
+
+
+def prefetch(segments, root, config, verifier, transport=None):
+    """Remplit le cache en parallèle ; au premier échec, aucun fragment non commencé n'est envoyé."""
+    pending = {}
+    for segment in segments:
+        options = part_config(segment, config)
+        for text in chunks(segment['text']):
+            key = fragment_key(text, options['tts']['voice'], options['tts']['speed'])
+            if key not in pending and not cached(root, key):
+                pending[key] = (text, options)  # un texte répété n'est envoyé qu'une fois
+    if len(pending) < 2:
+        return
+    failed = []
+
+    def guarded():
+        if failed:
+            raise RuntimeError('Préparation audio interrompue.')
+        verifier()
+
+    def run(text, options):
+        try:
+            return fragment(text, root, options, guarded, transport)
+        except BaseException as error:
+            failed.append(error)
+            raise
+
+    with concurrent.futures.ThreadPoolExecutor(PARALLEL_FRAGMENTS) as pool:
+        futures = [pool.submit(run, *job) for job in pending.values()]
+        for future in concurrent.futures.as_completed(futures):
+            if future.exception():
+                for other in futures:
+                    other.cancel()
+                break
+    if failed:
+        raise failed[0]
+
+
 def assemble(segments, root, config, output, timings_path, verifier, transport=None):
     output = Path(output)
     temporary = output.with_suffix('.part.wav')
     cursor, timings = 0, []
     started = time.monotonic()
+    prefetch(segments, root, config, verifier, transport)
     try:
         with wave.open(str(temporary), 'wb') as writer:
             writer.setparams((1, 2, RATE, 0, 'NONE', 'not compressed'))
@@ -164,8 +208,7 @@ def assemble(segments, root, config, output, timings_path, verifier, transport=N
                     cursor += silence
                 start = cursor
                 for text in chunks(segment['text']):
-                    part_config = {**config, 'tts': {**config['tts'], 'voice': voice_for(segment, config['tts']['voice'])}}
-                    path = fragment(text, root, part_config, verifier, transport)
+                    path = fragment(text, root, part_config(segment, config), verifier, transport)
                     with wave.open(str(path), 'rb') as audio:
                         data = audio.readframes(audio.getnframes())
                     writer.writeframesraw(data)
