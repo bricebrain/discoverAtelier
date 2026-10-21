@@ -134,8 +134,15 @@ class SourceTests(unittest.TestCase):
             self.assertEqual(result['timingSource'], 'macwhisper_srt')
             self.assertTrue(Path(result['segmentsFile']).is_file())
 
+    def test_live_streams_are_refused_before_any_download(self):
+        for etat in ('is_live', 'was_live', 'is_upcoming', 'post_live'):
+            with self.subTest(etat=etat), tempfile.TemporaryDirectory() as folder:
+                with self.assertRaises(source.SourceRefusee):
+                    self.preparer(folder, {'live_status': etat, 'automatic_captions': {'en-orig': []}}, VTT_AUTO)
+                self.assertEqual(FausseVideo.appels, [])
+
     def test_podcast_episodes_are_refused(self):
-        with tempfile.TemporaryDirectory() as folder, self.assertRaises(RuntimeError):
+        with tempfile.TemporaryDirectory() as folder, self.assertRaises(source.SourceRefusee):
             source.preparer_source({'ref': 'a' * 20, 'source': {'kind': 'episode'}}, folder, lambda _: None, lambda: None)
 
     def test_lost_lease_stops_subprocess(self):
@@ -176,6 +183,23 @@ class QueueTests(unittest.TestCase):
             self.assertTrue(last.args[2].endswith('/release'))
             self.assertEqual(last.args[3], {'leaseToken': ITEM['leaseToken'], 'sourceReady': True})
             self.assertNotIn(ITEM['leaseToken'], json.dumps(worker.etat()))
+
+    def test_refused_source_fails_once_without_retry(self):
+        with tempfile.TemporaryDirectory() as folder:
+            worker = discover_queue.FileDiscover(folder, preparer=mock.Mock(side_effect=source.SourceRefusee(source.DIRECTS_REFUSES)))
+            worker.owner, worker.config = 'mac', {}
+            def request(config, method, path, data=None):
+                if path.endswith('/lease'):
+                    return {'item': None} if worker.item is None and request.servi else (setattr(request, 'servi', True) or {'item': dict(ITEM)})
+                if path.endswith('/fail'):
+                    worker.stop.set()
+                return {}
+            request.servi = False
+            worker.requete = mock.Mock(side_effect=request)
+            worker._executer()
+            fail = [c for c in worker.requete.call_args_list if c.args[2].endswith('/fail')]
+            self.assertEqual(len(fail), 1)
+            self.assertEqual(fail[0].args[3], {'leaseToken': ITEM['leaseToken'], 'error': source.DIRECTS_REFUSES, 'retryable': False})
 
     def test_publication_carries_lease_for_upload_and_commit(self):
         from manifeste_validation import contrats

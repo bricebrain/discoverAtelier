@@ -234,6 +234,11 @@ class FileDiscover:
                     self.message = f'Quota atteint ({erreur}). Reprise dans une heure ; étapes conservées.'[:400]
                     self.stop.wait(3600)
                     continue
+                except discover_source.SourceRefusee as erreur:
+                    # Message fixe et sans donnée privée : il est affiché dans l'app.
+                    self._appel('/' + self.item['id'] + '/fail',
+                                {'leaseToken': self.item['leaseToken'], 'error': str(erreur), 'retryable': False})
+                    self.message = str(erreur)
                 except BailPerdu:
                     self.message = 'Préparation interrompue. Le Worker attribuera un nouveau bail.'
                     if self.stop.is_set() and not self.perdu.is_set():

@@ -14,6 +14,12 @@ from discover_download import empreinte
 
 
 PODCASTS_RETIRES = 'Les podcasts ne sont plus préparés : Discover ne suit que des chaînes YouTube.'
+DIRECTS_REFUSES = 'Vidéo en direct (ou rediffusion d’un direct) : non préparée.'
+ETATS_DIRECT = ('is_live', 'is_upcoming', 'was_live', 'post_live')
+
+
+class SourceRefusee(RuntimeError):
+    """Source que l'Atelier ne préparera jamais : échec définitif, sans nouvel essai."""
 
 
 class IntervenantsIndisponibles(RuntimeError):
@@ -154,6 +160,9 @@ def preparer_youtube(item, dossier, etape, verifier):
     etape('download')
     with yt_dlp.YoutubeDL({'quiet': True, 'no_warnings': True, 'noprogress': True, 'noplaylist': True}) as ydl:
         info = ydl.extract_info(source['url'], download=False) or {}
+    # Directs : souvent plusieurs heures et sans sous-titres, ils relanceraient MacWhisper.
+    if info.get('live_status') in ETATS_DIRECT or info.get('is_live') or info.get('was_live'):
+        raise SourceRefusee(DIRECTS_REFUSES)
     source['title'] = (info.get('title') or source['title'])[:300]
     langue = (info.get('language') or '')[:2]
     source['language'] = langue if langue in ('fr', 'en') else None
@@ -251,4 +260,4 @@ def preparer_source(item, dossier, etape, verifier):
     if kind == 'dossier':
         import discover_dossier
         return discover_dossier.preparer(item, dossier, etape, verifier)
-    raise RuntimeError(PODCASTS_RETIRES)
+    raise SourceRefusee(PODCASTS_RETIRES)
