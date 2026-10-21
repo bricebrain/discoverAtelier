@@ -3,6 +3,8 @@ import fcntl
 import logging
 import re
 import threading
+import time
+from discover_live import LiveQueue
 import uuid
 from pathlib import Path
 
@@ -39,6 +41,8 @@ class FileDiscover:
         self.message = ''
         self.owner = None
         self.lockfile = None
+        self.wake = threading.Event()
+        self.live = LiveQueue(self.wake)
 
     def _sauver(self):
         self.dossier.mkdir(parents=True, exist_ok=True)
@@ -96,12 +100,14 @@ class FileDiscover:
             self.item = etat.get('item')
             self.etape = etat.get('stage', 'download')
             self.stop.clear()
+            self.live.start(self.config)
             self.perdu.clear()
             self.thread = threading.Thread(target=self._executer, daemon=True)
             self.thread.start()
 
     def arreter(self):
         self.stop.set()
+        self.wake.set()
 
     def etat(self):
         with self.verrou:
@@ -111,7 +117,19 @@ class FileDiscover:
 
     def liste(self):
         config = self.config or discover_cible.charger_config()
-        return self.requete(config, 'GET', '/atelier/queue')
+        if self.requete is discover_cible.requete:
+            self.live.start(config)
+        return self.live.read(config, self.requete)
+
+    def _attendre(self):
+        # Aucun accès distant pendant l'attente. Les actions de relecture locales restent réactives.
+        until = time.monotonic() + 300
+        while not self.stop.is_set() and time.monotonic() < until:
+            if self.wake.is_set() or (not self.source_only and discover_review.suivante(self.dossier)[0]):
+                return False
+            if self.stop.wait(1):
+                return True
+        return self.stop.is_set()
 
     def _etape(self, etape):
         self.etape = etape
@@ -174,6 +192,7 @@ class FileDiscover:
                     self.perdu.clear()
                     self._sauver()
             while not self.stop.is_set():
+                self.wake.clear()
                 if self.item is None:
                     action_id, action_path = discover_review.suivante(self.dossier) if not self.source_only else (None, None)
                     body = {'owner': self.owner, 'sourceOnly': self.source_only}
@@ -203,7 +222,7 @@ class FileDiscover:
                                                          busy=self.item is not None, verifier=self.verifier)
                         except Exception:
                             logging.getLogger(__name__).warning('Synchronisation des mots différée : vérifier le cache local et la connexion.')
-                    if self.stop.wait(15):
+                    if self._attendre():
                         break
                     continue
                 try:

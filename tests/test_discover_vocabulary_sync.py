@@ -165,7 +165,7 @@ class QueueIntegrationTests(unittest.TestCase):
             with self.subTest(source_only=source_only), tempfile.TemporaryDirectory() as root:
                 worker = discover_queue.FileDiscover(root, requete=Mock(return_value={'item': None}), source_only=source_only)
                 worker.config = {}
-                worker.stop.wait = Mock(side_effect=[False, True])
+                worker._attendre = Mock(side_effect=[False, True])
                 with patch('discover_queue.discover_articles.traiter_en_attente'), \
                         patch('discover_queue.discover_related.run'), \
                         patch('discover_queue.discover_vocabulary_sync.run', side_effect=OSError('cache')) as run:

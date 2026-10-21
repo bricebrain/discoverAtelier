@@ -194,6 +194,8 @@ def traiter(handler, methode, path, donnees=None):
             handler._envoyer(200, {'state': FILE.etat()})
         else:
             handler._envoyer(404, {'erreur': 'Route inconnue.'})
+        if methode == 'POST':
+            FILE.live.invalidate()
     except (OSError, ValueError, RuntimeError, jsonschema.ValidationError) as erreur:
         message = _erreur_discover(erreur)
         if message is None:
