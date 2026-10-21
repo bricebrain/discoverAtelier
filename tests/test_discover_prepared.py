@@ -80,6 +80,13 @@ class PreparedBundleTests(unittest.TestCase):
                 segments = json.loads(Path(paths[source_variant['segmentsFile']]).read_text())['segments']
                 self.assertEqual((source_variant['audio']['timingSource'], segments[0]['endMs']), attendu)
 
+    def test_news_channels_are_labelled_news(self):
+        for categorie, attendu in (('economy', 'news'), ('news', 'news'), ('science', 'discovery'), ('study', 'discovery')):
+            with self.subTest(categorie=categorie):
+                self.item['source']['category'] = categorie
+                manifest, _ = bundle.construire(self.item, self.source, self.prepared, self.audio, self.root / categorie)
+                self.assertEqual(manifest['content']['editorial'], attendu)
+
     def test_target_duration_and_dialogue_have_distinct_keys(self):
         self.options.update(coverage='condensed', targetMinutes=12)
         a = bundle.variant_key(self.options)

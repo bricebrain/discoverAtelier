@@ -11,6 +11,7 @@ from discover_ai import empreinte as fingerprint
 from manifeste_validation import valider_manifeste, valider_provenance, valider_segments
 
 DEBORDEMENT_FIN_MS = 5000  # écart toléré entre la fin des sous-titres YouTube et celle de l'audio
+CATEGORIES_ACTUALITE = ('news', 'economy', 'tech', 'football')  # chaînes d'actualité ; le reste est « découverte »
 
 
 def content_id(item):
@@ -142,7 +143,7 @@ def construire(item, source, prepared, audio, folder, faithful=None, faithful_au
                         files[path] = previous['files'][path]
     category = item['source'].get('category')
     content = {'id': content_id(item), 'title': item['source']['title'], 'originalLanguage': language, 'rights': 'personal_use',
-               'category': category, 'editorial': 'discovery'}
+               'category': category, 'editorial': 'news' if kind == 'youtube' and category in CATEGORIES_ACTUALITE else 'discovery'}
     if kind == 'youtube':
         content.update(sourceType='youtube', sourceRef='youtube:' + item['ref'], sourceUrl=item['source']['url'])
     elif kind == 'reflection':
