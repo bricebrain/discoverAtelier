@@ -1,4 +1,4 @@
-// Onglet Discover de l'Atelier. Aucune chaîne venue d'un podcast n'est injectée comme HTML (textContent seulement).
+// Page de l'Atelier Discover. Aucune chaîne venue du Worker n'est injectée comme HTML (textContent seulement).
 import { openReview, reviews } from './discover_review.js';
 
 const $ = (id) => document.getElementById(id);
@@ -16,7 +16,7 @@ const STEPS = [
   ['publish', 'Publication', ['publish']],
 ];
 const STAGE_TEXT = {
-  download: 'Téléchargement de l’épisode', normalize: 'Préparation de l’audio', transcribe: 'Transcription (MacWhisper ou transcription de l’émission)',
+  download: 'Téléchargement de l’audio', normalize: 'Préparation de l’audio', transcribe: 'Transcription (sous-titres de la vidéo, sinon MacWhisper)',
   source_ready: 'Source prête', plan: 'Plan de l’épisode (Gemini)', extract: 'Extraction des faits et arguments (Gemini)',
   adapt: 'Écriture de la version anglaise (Gemini)', translate: 'Traduction fidèle (Gemini)', evaluate: 'Contrôle de fidélité',
   review: 'En attente de relecture (mode manuel)', tts: 'Création de l’audio anglais (Deepgram ou Heart)', publish: 'Publication dans Discover',
@@ -102,7 +102,7 @@ function renderEngine(state) {
   $('engine-state').textContent = !state.running ? 'Préparateur arrêté'
     : current ? `Prépare : ${current.title || 'épisode'}` : 'Préparateur prêt';
   $('engine-msg').textContent = current ? (STAGE_TEXT[state.stage] || state.message || '') : (state.message || (state.running
-    ? 'En attente : choisis un épisode dans l’onglet Podcasts, ou depuis l’app.' : 'Démarre-le pour traiter les préparations sur ce Mac.'));
+    ? 'En attente : choisis une vidéo dans l’onglet Chaînes YouTube, ou depuis l’app.' : 'Démarre-le pour traiter les préparations sur ce Mac.'));
   // Gemini bloqué (quota, panne…) : l'Atelier prépare avec OpenAI en attendant.
   const ai = $('engine-ai');
   ai.hidden = !state.ai;
@@ -182,7 +182,7 @@ function optionsEditor({ long = false, faithfulAllowed = false } = {}) {
   };
 }
 
-// ── Podcasts ─────────────────────────────────────────────────────────────────
+// ── Chaînes YouTube ──────────────────────────────────────────────────────────
 function prepPanel(ep) {
   const long = (ep.durationSec || 0) > 25 * 60;
   const editor = optionsEditor({ long, faithfulAllowed: ep.language === 'fr' });
@@ -263,13 +263,13 @@ function renderEpisodes() {
     const busy = item && (item.status === 'pending' || item.status === 'leased');
     const btn = el('button', ep.contentId ? 'Autre version' : 'Préparer', busy ? '' : 'primary');
     btn.disabled = busy;
-    btn.title = busy ? 'Une préparation est déjà en cours pour cet épisode.' : '';
+    btn.title = busy ? 'Une préparation est déjà en cours pour cette vidéo.' : '';
     btn.onclick = () => { openPrep = openPrep === ep.id ? null : ep.id; renderEpisodes(); };
     card.append(btn);
     if (openPrep === ep.id) card.append(prepPanel(ep));
     return card;
   });
-  $('episodes').replaceChildren(...(nodes.length ? nodes : [el('p', q ? 'Aucun épisode ne correspond.' : 'Aucun épisode pour ces filtres.', 'empty')]));
+  $('episodes').replaceChildren(...(nodes.length ? nodes : [el('p', q ? 'Aucune vidéo ne correspond.' : 'Aucune vidéo pour ces filtres.', 'empty')]));
   $('more').hidden = !cursor;
 }
 
@@ -284,7 +284,7 @@ async function loadEpisodes(append = false) {
     renderEpisodes();
   } catch (error) {
     $('episodes').replaceChildren(el('p', null, 'empty'));
-    banner('error', 'Impossible de charger les podcasts', error.message, { label: 'Réessayer', run: () => loadEpisodes() });
+    banner('error', 'Impossible de charger les vidéos', error.message, { label: 'Réessayer', run: () => loadEpisodes() });
   }
 }
 
@@ -295,6 +295,8 @@ function renderAuto(enabled) {
   $('auto-enabled').checked = enabled;
   const podcasts = autoShows.filter((s) => s.enabled && s.sourceType !== 'youtube');
   const active = podcasts.filter((s) => s.autoPrepare).length;
+  // Le Worker ne prépare automatiquement que les podcasts, retirés de Discover : panneau caché tant qu'aucune émission n'est proposée.
+  $('auto-panel').hidden = !podcasts.length;
   $('auto-summary').textContent = enabled ? `· ${active} émission${active > 1 ? 's' : ''}` : '· coupée';
   $('auto-shows').replaceChildren(...podcasts.map((s) => {
     const row = el('div', null, 'auto-row');
@@ -445,7 +447,7 @@ function renderQueue() {
     if (actions.childElementCount) card.append(actions);
     return card;
   });
-  $('items').replaceChildren(...(nodes.length ? nodes : [el('p', 'Aucune préparation. Choisis un épisode dans l’onglet Podcasts.', 'empty')]));
+  $('items').replaceChildren(...(nodes.length ? nodes : [el('p', 'Aucune préparation. Choisis une vidéo dans l’onglet Chaînes YouTube.', 'empty')]));
 }
 
 const ACT_ERRORS = { retry: 'Impossible de relancer', cancel: 'Impossible d’annuler', remove: 'Impossible de retirer', 'delete-content': 'Impossible de supprimer' };

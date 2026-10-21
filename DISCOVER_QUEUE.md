@@ -2,7 +2,7 @@
 
 Lancer `lancer_discover.command` : la page de l’Atelier Discover s’ouvre directement. La file vient du Worker configuré dans `config_discover.json` ; le jeton n’est jamais transmis au navigateur.
 
-Sur le téléphone, choisir **Préparer en anglais** sur un épisode. L’Atelier télécharge et normalise l’audio, récupère la transcription officielle ou utilise MacWhisper, puis prépare et publie la version choisie : Intégral, Condensé ou L’essentiel, au niveau et à la durée demandés. Le suivi et l’annulation restent disponibles dans Discover.
+Sur le téléphone, choisir **Préparer en anglais** sur une vidéo. L’Atelier télécharge et normalise l’audio, reprend les sous-titres YouTube (manuels, sinon automatiques d’origine, avec leurs timings) ou, s’il n’y en a aucun, utilise MacWhisper, puis prépare et publie la version choisie : Intégral, Condensé ou L’essentiel, au niveau et à la durée demandés. Le suivi et l’annulation restent disponibles dans Discover.
 
 Gemini utilise la clé existante de `config_ia.json`, ou `geminiApiKey` dans `config_discover.json`, ou `GEMINI_API_KEY`. `geminiModel` et `geminiJudgeModel` permettent de choisir les modèles d’écriture et de contrôle séparément. L’exemple de configuration ne contient aucun secret. Kokoro utilise `venv-tts` et les modèles déjà installés sur ce Mac.
 
