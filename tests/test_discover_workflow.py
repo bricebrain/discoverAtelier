@@ -22,8 +22,8 @@ class WorkflowTests(unittest.TestCase):
         source_path = self.root / 'segments.json'
         source_path.write_text(json.dumps({'segments': [{'id': 's001', 'text': 'A fact.'}]}))
         self.source = {'segmentsFile': str(source_path), 'segmentsSha256': 'hash'}
-        self.item = {'id': 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa', 'ref': 'a' * 20, 'leaseToken': 'token',
-                     'source': {'title': 'Episode'}, 'options': {'coverage': 'condensed', 'targetMinutes': 12, 'level': 'B1', 'style': 'narration', 'faithful': False, 'keepOriginalCopy': False}}
+        self.item = {'id': 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa', 'ref': 'dQw4w9WgXcQ', 'kind': 'youtube', 'leaseToken': 'token',
+                     'source': {'kind': 'youtube', 'title': 'Episode', 'url': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'}, 'options': {'coverage': 'condensed', 'targetMinutes': 12, 'level': 'B1', 'style': 'narration', 'faithful': False, 'keepOriginalCopy': False}}
         self.prepared = {'script': {'segments': [{'text': 'A fact.', 'fr': 'Un fait.', 'speaker': 'Narrator', 'sourceSegments': ['s001']}], 'tooShortForSubject': False, 'recommendedMinutes': None, 'keyVocab': []},
                          'evaluation': {'verdict': 'ok'}, 'generation': {}, 'facts': []}
         self.client = mock.Mock()

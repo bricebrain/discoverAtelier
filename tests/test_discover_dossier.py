@@ -12,13 +12,15 @@ from manifeste_validation import ErreurManifeste
 RUN = '22222222-2222-4222-8222-222222222222'
 NOTE = '3f1d9c6e-8b2a-4c7d-9e10-2a3b4c5d6e7f'
 EP = 'a' * 20
+VIDEO = 'dQw4w9WgXcQ'
 OPTIONS = {'coverage': 'condensed', 'level': 'B1', 'style': 'narration', 'targetMinutes': 10, 'faithful': False, 'keepOriginalCopy': False}
 
 
 def snapshots():
     return [
-        {'id': 'd1', 'type': 'episode', 'ref': EP, 'kind': 'episode', 'title': 'Épisode dette', 'language': 'en',
-         'capturedAt': '2026-10-19T10:00:00.000Z', 'audioUrl': 'https://example.com/a.mp3'},
+        # Vidéo d'une chaîne suivie : ligne « episode » du Worker, préparée comme une vidéo YouTube.
+        {'id': 'd1', 'type': 'episode', 'ref': EP, 'kind': 'youtube', 'videoId': VIDEO, 'title': 'Épisode dette', 'language': 'en',
+         'capturedAt': '2026-10-19T10:00:00.000Z', 'url': 'https://www.youtube.com/watch?v=' + VIDEO},
         {'id': 'd2', 'type': 'reflection', 'ref': NOTE, 'kind': 'reflection', 'title': 'Ma note', 'language': None,
          'capturedAt': '2026-10-19T10:00:00.000Z', 'text': 'Je pense que la dette publique va baisser dans les prochaines années.'},
         {'id': 'd3', 'type': 'content', 'ref': 'youtube-0123456789abcdef0123', 'kind': 'content', 'title': 'Vidéo préparée',
@@ -28,6 +30,13 @@ def snapshots():
 
 
 class PreparationDossier(unittest.TestCase):
+    def test_un_episode_de_podcast_est_refuse(self):
+        sources = snapshots()
+        sources[0] = {**sources[0], 'kind': 'episode'}
+        item = {'ref': RUN, 'options': OPTIONS, 'source': {'kind': 'dossier', 'title': 'Dette publique', 'sources': sources}}
+        with tempfile.TemporaryDirectory() as tmp, self.assertRaises(ValueError):
+            discover_dossier.preparer(item, Path(tmp) / ('dossier-' + RUN), lambda _: None, lambda: None, root=Path(tmp))
+
     def test_assemble_les_sources_avec_leur_provenance(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp = Path(tmp)
@@ -36,12 +45,12 @@ class PreparationDossier(unittest.TestCase):
                 {'id': 's0001', 'text': 'Public debt reached 110 percent of GDP this year.', 'startMs': 61000, 'endMs': 64000}]}))
 
             def fake_episode(sub, dossier, etape, verifier):
-                # Même dossier de cache que la préparation de l'épisode seul.
-                self.assertEqual(Path(dossier), tmp / EP)
+                # Même dossier de cache que la préparation de la vidéo seule.
+                self.assertEqual(Path(dossier), tmp / ('youtube-' + VIDEO))
                 return {'segmentsFile': str(episode_segments), 'source': {'language': 'en'}}
 
             item = {'ref': RUN, 'options': OPTIONS, 'source': {'kind': 'dossier', 'title': 'Dette publique', 'sources': snapshots()}}
-            with mock.patch('discover_source.preparer', side_effect=fake_episode):
+            with mock.patch('discover_source.preparer_youtube', side_effect=fake_episode):
                 result = discover_dossier.preparer(item, tmp / ('dossier-' + RUN), lambda _: None, lambda: None, root=tmp)
             doc = json.loads(Path(result['segmentsFile']).read_text())
         ids = [s['id'] for s in doc['segments']]

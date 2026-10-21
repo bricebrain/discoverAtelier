@@ -1,4 +1,4 @@
-"""Point de reprise source : audio mono 64 kbit/s, transcription (RSS, sous-titres YouTube, sinon MacWhisper) et segments."""
+"""Point de reprise source : audio mono 64 kbit/s, transcription (sous-titres YouTube, sinon MacWhisper) et segments."""
 import html
 import json
 import re
@@ -10,7 +10,10 @@ from pathlib import Path
 
 import horodatage
 import pipeline
-from discover_download import empreinte, telecharger
+from discover_download import empreinte
+
+
+PODCASTS_RETIRES = 'Les podcasts ne sont plus préparés : Discover ne suit que des chaînes YouTube.'
 
 
 class IntervenantsIndisponibles(RuntimeError):
@@ -64,93 +67,7 @@ def ffmpeg():
         raise RuntimeError('ffmpeg est nécessaire à la préparation audio.') from e
 
 
-def preparer(item, dossier, etape, verifier):
-    source = item['source']
-    dossier = Path(dossier)
-    dossier.mkdir(parents=True, exist_ok=True)
-    cache = dossier / 'source.json'
-    precedent = pipeline.lire_json(str(cache)) or {}
-    original = dossier / 'download.audio'
-    normalise = dossier / 'source.mp3'
-    meme_source = precedent.get('audioUrl') == source['audioUrl']
-    etape('download')
-    if not (meme_source and original.is_file() and precedent.get('downloadSha256') == empreinte(original)):
-        sha = telecharger(source['audioUrl'], original, 250_000_000, verifier)
-        precedent = {'audioUrl': source['audioUrl'], 'downloadSha256': sha}
-        pipeline.ecrire_json(str(cache), precedent)
-    verifier()
-    etape('normalize')
-    if not (normalise.is_file() and precedent.get('audioSha256') == empreinte(normalise)):
-        temporaire = dossier / 'source.part.mp3'
-        try:
-            commande([ffmpeg(), '-nostdin', '-y', '-v', 'error', '-i', str(original), '-vn',
-                      '-ac', '1', '-ar', '24000', '-b:a', '64k', str(temporaire)], verifier)
-            temporaire.replace(normalise)
-        finally:
-            temporaire.unlink(missing_ok=True)
-        precedent['audioSha256'] = empreinte(normalise)
-        pipeline.ecrire_json(str(cache), precedent)
-    etape('transcribe')
-    segments_path = dossier / 'segments-source.json'
-    # Une transcription n'est réutilisée que pour exactement le même audio et les mêmes métadonnées de flux.
-    transcription_key = [precedent['audioSha256'], source.get('transcriptUrl'), source.get('language')]
-    if (precedent.get('transcriptionKey') == transcription_key and segments_path.is_file()
-            and precedent.get('segmentsSha256') == empreinte(segments_path)):
-        verifier()
-        precedent.update({'source': source, 'options': item['options']})
-        pipeline.ecrire_json(str(cache), precedent)
-        return precedent
-    texte = None
-    timing = 'none'
-    speakers_detected = None
-    if source.get('transcriptUrl') and source.get('transcriptType') in ('srt', 'vtt'):
-        chemin = dossier / ('transcript.' + source['transcriptType'])
-        try:
-            telecharger(source['transcriptUrl'], chemin, 5_000_000, verifier)
-            texte = chemin.read_text(encoding='utf-8-sig')
-            cues = repliques(texte)
-            if not cues:
-                raise ValueError('Transcription du flux illisible.')
-            timing = 'rss_' + source['transcriptType']
-        except (OSError, ValueError, RuntimeError):
-            verifier()
-            texte = None
-    if texte is None:
-        import transcription
-        mw = transcription.trouver_macwhisper()
-        if not mw:
-            raise RuntimeError('MacWhisper est nécessaire : ce flux ne fournit pas de transcription lisible.')
-        srt = dossier / 'macwhisper.srt'
-        with transcription.VERRO_WHISPER:
-            verifier()
-            args = [mw, 'transcribe', '--language', source['language'], '--format', 'srt',
-                    '--output', str(srt), '--speakers', '--overwrite', str(normalise)]
-            try:
-                commande(args, verifier)
-                speakers_detected = True
-            except IntervenantsIndisponibles:
-                verifier()
-                args[args.index('--speakers')] = '--no-speakers'
-                commande(args, verifier)
-                speakers_detected = False
-        cues = repliques(srt.read_text(encoding='utf-8-sig'))
-        timing = 'macwhisper_srt'
-    if not cues:
-        raise RuntimeError('La transcription ne contient aucun segment lisible.')
-    verifier()
-    segments = [{'id': f's{i:04d}', 'text': c['text'], 'startMs': c['startMs'], 'endMs': c['endMs']}
-                for i, c in enumerate(horodatage.regrouper_repliques(cues), 1)]
-    pipeline.ecrire_json(str(segments_path), {'language': source['language'], 'timingSource': timing, 'segments': segments})
-    precedent.update({'transcriptionKey': transcription_key, 'segmentsSha256': empreinte(segments_path),
-                      'audioFile': str(normalise), 'segmentsFile': str(segments_path),
-                      'source': source, 'options': item['options'], 'timingSource': timing,
-                      'speakersDetected': speakers_detected})
-    pipeline.ecrire_json(str(cache), precedent)
-    verifier()
-    return precedent
-
-
-# ── Autres sources : vidéo YouTube et texte (note My Mind ou texte importé) ─────────────────────────
+# ── Sources : vidéo YouTube et texte (note My Mind ou texte importé) ────────────────────────────────
 
 MOTS_FR = set('le la les des est et une un que pour pas dans du au aux ce cette qui sur avec sont nous vous ils elle mais ou'.split())
 MOTS_EN = set('the and is of to in that it for not with are this was on be as at by have from but they you we'.split())
@@ -325,8 +242,8 @@ def preparer_texte(item, dossier, etape, verifier):
 
 
 def preparer_source(item, dossier, etape, verifier):
-    """Aiguillage selon le type de demande : épisode de podcast, vidéo YouTube ou texte."""
-    kind = item['source'].get('kind', 'episode')
+    """Aiguillage selon le type de demande : vidéo YouTube, texte ou dossier."""
+    kind = item['source'].get('kind')
     if kind == 'youtube':
         return preparer_youtube(item, dossier, etape, verifier)
     if kind == 'reflection':
@@ -334,4 +251,4 @@ def preparer_source(item, dossier, etape, verifier):
     if kind == 'dossier':
         import discover_dossier
         return discover_dossier.preparer(item, dossier, etape, verifier)
-    return preparer(item, dossier, etape, verifier)
+    raise RuntimeError(PODCASTS_RETIRES)

@@ -1,5 +1,5 @@
 // Contrôles de fidélité : versions en attente de relecture (mode manuel) et versions publiées avec des points
-// signalés. Aucune chaîne issue d'un podcast n'est injectée comme HTML.
+// signalés. Aucune chaîne venue du Worker n'est injectée comme HTML.
 const $ = (id) => document.getElementById(id);
 function element(tag, text, className) {
   const node = document.createElement(tag);

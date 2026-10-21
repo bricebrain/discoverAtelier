@@ -19,7 +19,6 @@ REQUEST = '11111111-1111-4111-8111-111111111111'
 NOTE = '22222222-2222-4222-8222-222222222222'
 ARTICLE = '33333333-3333-4333-8333-333333333333'
 DOSSIER = '44444444-4444-4444-8444-444444444444'
-EPISODE = 'a' * 20
 VIDEO = 'dQw4w9WgXcQ'
 TEXT = 'The city plans to add buses next month. The plan aims to cut traffic and help people get to work.'
 QUESTIONS = [
@@ -31,8 +30,6 @@ QUESTIONS = [
 
 def demande(kind):
     sources = [
-        {'kind': 'episode', 'type': 'episode', 'ref': EPISODE, 'title': 'Podcast',
-         'language': 'en', 'audioUrl': 'https://publisher.example/audio.mp3'},
         {'kind': 'youtube', 'type': 'youtube', 'ref': VIDEO, 'videoId': VIDEO, 'title': 'Video',
          'language': 'en', 'url': 'https://www.youtube.com/watch?v=' + VIDEO},
         {'kind': 'reflection', 'type': 'reflection', 'ref': NOTE, 'title': 'Personal note',
@@ -50,7 +47,7 @@ def demande(kind):
             for i, s in enumerate(sources, 1)]}
         ref = DOSSIER
     else:
-        source = sources[{'episode': 0, 'youtube': 1, 'reflection': 2, 'article': 3}[kind]]
+        source = sources[{'youtube': 0, 'reflection': 1, 'article': 2}[kind]]
         ref = source['ref']
     return {'id': REQUEST, 'kind': source['kind'], 'ref': ref, 'source': source,
             'options': {'coverage': 'full', 'targetMinutes': None, 'level': 'B1', 'style': 'narration',
@@ -211,7 +208,6 @@ class Simulation:
             stack.enter_context(mock.patch.object(consumer, '_traiter', side_effect=traitement))
             stack.enter_context(mock.patch('socket.socket.connect', side_effect=AssertionError('Réseau interdit')))
             stack.enter_context(mock.patch('subprocess.Popen', side_effect=AssertionError('Processus externe interdit')))
-            stack.enter_context(mock.patch.object(discover_source, 'preparer', side_effect=self.source_media))
             stack.enter_context(mock.patch.object(discover_source, 'preparer_youtube', side_effect=self.source_media))
             stack.enter_context(mock.patch.object(discover_preparation, 'Client', return_value=self.client))
             stack.enter_context(mock.patch('discover_vocabulary.charger', return_value=set()))

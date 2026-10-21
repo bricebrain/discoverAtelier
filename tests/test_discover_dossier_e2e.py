@@ -7,7 +7,7 @@ from unittest import mock
 
 from discover_queue import BailPerdu
 
-from discover_simulation import EPISODE, VIDEO, QUESTIONS, Simulation
+from discover_simulation import VIDEO, QUESTIONS, Simulation
 from manifeste_validation import valider_provenance, valider_segments
 
 
@@ -19,14 +19,13 @@ class DossierBoutEnBout(unittest.TestCase):
             events = sim.worker.events
             self.assertEqual(events[0][:2], ('POST', '/atelier/queue/lease'))
             stages = [data['stage'] for _, path, data in events if path.endswith('/heartbeat')]
-            self.assertEqual(stages, ['download', 'normalize', 'transcribe', 'download', 'normalize',
-                                      'transcribe', 'transcribe', 'transcribe', 'plan', 'extract',
+            self.assertEqual(stages, ['download', 'normalize', 'transcribe', 'transcribe', 'transcribe', 'plan', 'extract',
                                       'adapt', 'evaluate', 'tts', 'publish'])
-            self.assertEqual(sim.media, [('episode', EPISODE), ('youtube', 'youtube-' + VIDEO)])
+            self.assertEqual(sim.media, [('youtube', 'youtube-' + VIDEO)])
             manifest = sim.worker.manifest
-            self.assertEqual([s['id'] for s in manifest['content']['sources']], ['d1', 'd2', 'd3', 'd4', 'd5'])
-            self.assertIn('City News', manifest['content']['sources'][3]['title'])
-            self.assertEqual(manifest['content']['sources'][4]['publicationId'], 'previous-publication')
+            self.assertEqual([s['id'] for s in manifest['content']['sources']], ['d1', 'd2', 'd3', 'd4'])
+            self.assertIn('City News', manifest['content']['sources'][2]['title'])
+            self.assertEqual(manifest['content']['sources'][3]['publicationId'], 'previous-publication')
             source = next(v for v in manifest['variants'] if v['kind'] == 'source')
             adapted = next(v for v in manifest['variants'] if v['kind'] == 'adaptation')
             self.assertNotIn('audio', source)
@@ -34,12 +33,12 @@ class DossierBoutEnBout(unittest.TestCase):
             final = json.loads(sim.worker.uploads[adapted['segmentsFile']])
             source_ids = {s['id'] for s in original['segments']}
             valider_segments(final, adapted, source_ids)
-            valider_provenance(original, {'d1', 'd2', 'd3', 'd4', 'd5'}, True)
+            valider_provenance(original, {'d1', 'd2', 'd3', 'd4'}, True)
             self.assertEqual({r for s in final['segments'] for r in s['sourceSegments']}, source_ids)
             self.assertEqual(original['segments'][0]['provenance'],
                              {'sourceId': 'd1', 'segmentId': 's0001', 'startMs': 0, 'endMs': 10_000})
-            self.assertIsNone(original['segments'][2]['provenance']['startMs'])
-            self.assertEqual(original['segments'][4]['provenance']['startMs'], 500)
+            self.assertIsNone(original['segments'][1]['provenance']['startMs'])
+            self.assertEqual(original['segments'][3]['provenance']['startMs'], 500)
             plan = sim.ai.prompts[0]
             self.assertIn('SEVERAL independent sources', plan)
             self.assertIn('state the disagreement explicitly', plan)
@@ -60,10 +59,10 @@ class DossierBoutEnBout(unittest.TestCase):
             self.assertEqual(json.loads(published[0].read_text())['status'], 'ready')
             self.assertEqual(sim.costs['preparations'][0]['quizUsd'], .003)
 
-    def test_article_explorer_et_episode_avec_quiz_couts_et_provenance(self):
+    def test_article_explorer_et_video_avec_quiz_couts_et_provenance(self):
         with tempfile.TemporaryDirectory() as tmp:
             sim = Simulation(Path(tmp), 'dossier')
-            article = {'id': 'd6', 'type': 'article', 'kind': 'article', 'ref': 'c' * 20,
+            article = {'id': 'd5', 'type': 'article', 'kind': 'article', 'ref': 'c' * 20,
                        'title': 'Explorer article', 'language': 'en', 'origin': 'article',
                        'sourceName': 'The Guardian', 'sourceUrl': 'https://www.theguardian.com/test',
                        'publishedAt': '2026-10-18', 'capturedAt': '2026-10-19T10:00:00.000Z',
@@ -76,9 +75,9 @@ class DossierBoutEnBout(unittest.TestCase):
             self.assertIn('The Guardian', manifest['content']['sources'][-1]['title'])
             source = next(v for v in manifest['variants'] if v['kind'] == 'source')
             doc = json.loads(sim.worker.uploads[source['segmentsFile']])
-            passages = [s for s in doc['segments'] if s['provenance']['sourceId'] == 'd6']
+            passages = [s for s in doc['segments'] if s['provenance']['sourceId'] == 'd5']
             self.assertEqual(len(passages), 2)
-            self.assertEqual(passages[0]['provenance'], {'sourceId': 'd6', 'segmentId': 's0001',
+            self.assertEqual(passages[0]['provenance'], {'sourceId': 'd5', 'segmentId': 's0001',
                                                         'startMs': None, 'endMs': None})
             self.assertIn('Explorer article (article, The Guardian)', sim.ai.prompts[0])
             adapted = next(v for v in manifest['variants'] if v['kind'] == 'adaptation')
@@ -87,7 +86,7 @@ class DossierBoutEnBout(unittest.TestCase):
             self.assertTrue({s['id'] for s in passages} <= cited)
             self.assertEqual(adapted['quiz'], QUESTIONS)
             self.assertEqual(sim.costs['preparations'][0]['quizUsd'], .003)
-            self.assertEqual(sim.media[0], ('episode', EPISODE))
+            self.assertEqual(sim.media[0], ('youtube', 'youtube-' + VIDEO))
 
     def test_article_explorer_incomplet_refuse_avant_ia(self):
         with tempfile.TemporaryDirectory() as tmp:

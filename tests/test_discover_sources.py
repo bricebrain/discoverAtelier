@@ -43,7 +43,8 @@ class PisteSousTitresTests(unittest.TestCase):
 
 class ManifesteTests(unittest.TestCase):
     def test_identifiants_selon_la_source(self):
-        self.assertEqual(bundle.content_id({'ref': 'a' * 20, 'source': {'kind': 'episode'}}), 'podcast-' + 'a' * 20)
+        with self.assertRaises(ValueError):
+            bundle.content_id({'ref': 'a' * 20, 'source': {'kind': 'episode'}})
         youtube = bundle.content_id({'ref': 'dQw4w9WgXcQ', 'source': {'kind': 'youtube'}})
         self.assertRegex(youtube, r'^youtube-[0-9a-f]{20}$')
         note = '3f1d9c6e-8b2a-4c7d-9e10-2a3b4c5d6e7f'

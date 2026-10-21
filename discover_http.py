@@ -46,14 +46,14 @@ ASSETS = {'/': ('discover_queue.html', 'text/html; charset=utf-8'),
 
 
 CONTENU = re.compile(r'[a-z0-9][a-z0-9-]{2,95}')
-REFS = {'episode': r'[0-9a-f]{20}', 'youtube': r'[A-Za-z0-9_-]{11}', 'reflection': r'[0-9a-f-]{36}'}
+REFS = {'youtube': r'[A-Za-z0-9_-]{11}', 'reflection': r'[0-9a-f-]{36}'}
 
 
 def effacer_versions_locales(root, kind, ref):
     """Efface les versions publiées gardées sur ce Mac (audio, rapport de contrôle) ; la source transcrite reste en cache."""
     if kind not in REFS or not re.fullmatch(REFS[kind], ref or ''):
         return 0
-    dossier = Path(root) / (ref if kind == 'episode' else f'{kind}-{ref}')
+    dossier = Path(root) / f'{kind}-{ref}'
     effacees = 0
     for prepared in dossier.glob('prepared-*'):
         if prepared.is_dir() and (prepared / 'published.json').exists():
@@ -119,7 +119,7 @@ def traiter(handler, methode, path, donnees=None):
         elif methode == 'GET' and path == '/api/discover/shows':
             handler._envoyer(200, FILE.requete(FILE.config or discover_cible.charger_config(), 'GET', '/atelier/shows'))
         elif methode == 'POST' and path == '/api/discover/show-auto':
-            # Préparation automatique d'une émission : mêmes règles que dans l'app (podcasts, deux formules).
+            # Préparation automatique d'une chaîne : mêmes règles que dans l'app (vidéos YouTube, deux formules).
             show = str(donnees.get('id', ''))
             if not re.fullmatch(r'[a-z0-9-]{1,64}', show):
                 raise ValueError('Émission invalide.')

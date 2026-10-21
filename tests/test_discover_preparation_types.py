@@ -19,11 +19,11 @@ class QuizTousTypes(unittest.TestCase):
         return simulation
 
     def test_trois_questions_publiees_et_cout_par_type(self):
-        for kind in ('episode', 'youtube', 'reflection', 'article', 'dossier'):
+        for kind in ('youtube', 'reflection', 'article', 'dossier'):
             with self.subTest(kind=kind):
                 sim = self.simuler(kind)
                 manifest = sim.worker.manifest
-                expected = {'episode': 'podcast', 'article': 'reflection'}.get(kind, kind)
+                expected = {'article': 'reflection'}.get(kind, kind)
                 self.assertEqual(manifest['content']['sourceType'], expected)
                 variant = next(v for v in manifest['variants'] if v['kind'] == 'adaptation')
                 self.assertEqual(variant['quiz'], QUESTIONS)
@@ -42,7 +42,7 @@ class QuizTousTypes(unittest.TestCase):
                 self.assertEqual(row['totalUsd'], row['geminiUsd'])
 
     def test_quiz_invalide_ou_ia_indisponible_ne_bloque_aucun_type(self):
-        for kind in ('episode', 'youtube', 'reflection', 'article', 'dossier'):
+        for kind in ('youtube', 'reflection', 'article', 'dossier'):
             for quiz in ('invalid', 'unavailable'):
                 with self.subTest(kind=kind, quiz=quiz), mock.patch('builtins.print'):
                     sim = self.simuler(kind, quiz)
@@ -51,7 +51,7 @@ class QuizTousTypes(unittest.TestCase):
                     self.assertEqual(sim.costs['preparations'][0]['quizUsd'], .009 if quiz == 'invalid' else 0)
 
     def test_desactivation_ne_genere_aucune_question_pour_aucun_type(self):
-        for kind in ('episode', 'youtube', 'reflection', 'article', 'dossier'):
+        for kind in ('youtube', 'reflection', 'article', 'dossier'):
             with self.subTest(kind=kind):
                 sim = self.simuler(kind, 'disabled')
                 self.assertFalse(any(p.startswith('Create exactly three') for p in sim.ai.prompts))

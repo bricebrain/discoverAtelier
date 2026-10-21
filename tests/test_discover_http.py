@@ -54,12 +54,12 @@ class Suppressions(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
-        publiee = self.root / 'abcdefabcdefabcdef01' / 'prepared-b1'
+        publiee = self.root / 'youtube-dQw4w9WgXcQ' / 'prepared-b1'
         publiee.mkdir(parents=True)
         (publiee / 'published.json').write_text('{}')
         (publiee / 'review.json').write_text('{}')
-        (self.root / 'abcdefabcdefabcdef01' / 'prepared-b2').mkdir()  # préparation pas encore publiée : gardée
-        (self.root / 'abcdefabcdefabcdef01' / 'source.json').write_text('{}')
+        (self.root / 'youtube-dQw4w9WgXcQ' / 'prepared-b2').mkdir()  # préparation pas encore publiée : gardée
+        (self.root / 'youtube-dQw4w9WgXcQ' / 'source.json').write_text('{}')
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -73,22 +73,22 @@ class Suppressions(unittest.TestCase):
         return h, appel
 
     def test_supprime_le_contenu_et_les_versions_locales_publiees(self):
-        h, appel = self.appeler('/api/discover/delete-content', {'contentId': 'podcast-abcdefabcdefabcdef01', 'kind': 'episode', 'ref': 'abcdefabcdefabcdef01'}, return_value={})
+        h, appel = self.appeler('/api/discover/delete-content', {'contentId': 'youtube-abcdefabcdefabcdef01', 'kind': 'youtube', 'ref': 'dQw4w9WgXcQ'}, return_value={})
         self.assertEqual(h.reponses[0], (200, {'ok': True, 'localVersions': 1}))
-        self.assertEqual(appel.call_args.args[1:3], ('DELETE', '/atelier/contents/podcast-abcdefabcdefabcdef01'))
-        dossier = self.root / 'abcdefabcdefabcdef01'
+        self.assertEqual(appel.call_args.args[1:3], ('DELETE', '/atelier/contents/youtube-abcdefabcdefabcdef01'))
+        dossier = self.root / 'youtube-dQw4w9WgXcQ'
         self.assertFalse((dossier / 'prepared-b1').exists())
         self.assertTrue((dossier / 'prepared-b2').exists())
         self.assertTrue((dossier / 'source.json').exists())
 
     def test_deja_supprime_dans_l_app_nettoie_quand_meme(self):
-        h, _ = self.appeler('/api/discover/delete-content', {'contentId': 'podcast-abcdefabcdefabcdef01', 'kind': 'episode', 'ref': 'abcdefabcdefabcdef01'},
+        h, _ = self.appeler('/api/discover/delete-content', {'contentId': 'youtube-abcdefabcdefabcdef01', 'kind': 'youtube', 'ref': 'dQw4w9WgXcQ'},
                             side_effect=discover_cible.ErreurDiscover(404, 'not_found'))
         self.assertEqual(h.reponses[0][0], 200)
-        self.assertFalse((self.root / 'abcdefabcdefabcdef01' / 'prepared-b1').exists())
+        self.assertFalse((self.root / 'youtube-dQw4w9WgXcQ' / 'prepared-b1').exists())
 
     def test_refuse_un_chemin_hors_file(self):
-        self.assertEqual(discover_http.effacer_versions_locales(self.root, 'episode', '../../etc'), 0)
+        self.assertEqual(discover_http.effacer_versions_locales(self.root, 'youtube', '../../etc'), 0)
         h, appel = self.appeler('/api/discover/delete-content', {'contentId': '../x'}, return_value={})
         self.assertEqual(h.reponses[0][0], 503)
         appel.assert_not_called()

@@ -15,11 +15,36 @@ import discover_queue
 import discover_source as source
 
 
-ITEM = {'id': 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa', 'ref': 'a' * 20,
+VIDEO = 'dQw4w9WgXcQ'
+ITEM = {'id': 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa', 'ref': VIDEO, 'kind': 'youtube',
         'leaseToken': 'private-lease-token', 'options': {'coverage': 'full'},
-        'source': {'audioUrl': 'https://cdn.example.com/audio.mp3', 'language': 'en',
-                   'transcriptUrl': 'https://cdn.example.com/episode.vtt', 'transcriptType': 'vtt'}}
+        'source': {'kind': 'youtube', 'videoId': VIDEO, 'url': 'https://www.youtube.com/watch?v=' + VIDEO,
+                   'title': 'Video', 'language': 'en'}}
 VTT = 'WEBVTT\n\n00:01.000 --> 00:03.000\nA short <b>story</b>.\n'
+VTT_AUTO = ('WEBVTT\n\n00:00:01.000 --> 00:00:03.000\n \nA<00:00:01.500><c> short</c><00:00:02.000><c> story.</c>\n\n'
+            '00:00:03.000 --> 00:00:03.010\nA short story.\n \n')
+
+
+class FausseVideo:
+    """yt_dlp.YoutubeDL simulé : métadonnées, pistes de sous-titres et audio téléchargé."""
+    appels = []
+
+    def __init__(self, options=None, pistes=None):
+        self.options = options or {}
+        self.pistes = pistes
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def extract_info(self, url, download=False):
+        return {'title': 'Video', 'language': 'en', **(self.pistes or {})}
+
+    def download(self, urls):
+        FausseVideo.appels.append(urls)
+        Path(self.options['outtmpl'].replace('%(ext)s', 'mp3')).write_bytes(b'audio')
 
 
 class DownloadTests(unittest.TestCase):
@@ -64,30 +89,38 @@ class SourceTests(unittest.TestCase):
     def test_vtt_timing_and_markup(self):
         self.assertEqual(source.repliques(VTT), [{'startMs': 1000, 'endMs': 3000, 'text': 'A short story.'}])
 
-    def test_resumes_by_hash_and_rebuilds_corrupt_audio(self):
-        def transfer(url, path, limit, verify):
-            Path(path).write_bytes(VTT.encode() if url.endswith('.vtt') else b'audio')
-            return download.empreinte(path)
-        def normalize(args, verify):
+    def preparer(self, folder, pistes, sous_titres=None, commande=None):
+        """Prépare la source de la vidéo simulée ; renvoie (résultat, appels à ffmpeg/MacWhisper)."""
+        FausseVideo.appels = []
+        def normaliser(args, verify):
             Path(args[-1]).write_bytes(b'normalized-audio')
-        with tempfile.TemporaryDirectory() as folder, mock.patch.object(source, 'telecharger', side_effect=transfer) as fetch, \
-                mock.patch.object(source, 'commande', side_effect=normalize) as ffmpeg, mock.patch.object(source, 'ffmpeg', return_value='ffmpeg'):
-            result = source.preparer(ITEM, folder, lambda _: None, lambda: None)
-            self.assertEqual(result['timingSource'], 'rss_vtt')
-            self.assertEqual(fetch.call_count, 2)
-            source.preparer(ITEM, folder, lambda _: None, lambda: None)
-            self.assertEqual(fetch.call_count, 2)
-            self.assertEqual(ffmpeg.call_count, 1)
-            (Path(folder) / 'source.mp3').write_bytes(b'corrupted')
-            source.preparer(ITEM, folder, lambda _: None, lambda: None)
-            self.assertEqual(ffmpeg.call_count, 2)
-            self.assertEqual(fetch.call_count, 2)
+        def telecharger(url, base, cle, automatique):
+            if sous_titres is None:
+                return None
+            chemin = Path(base + '.' + cle + '.vtt')
+            chemin.write_text(sous_titres)
+            return str(chemin)
+        with mock.patch('yt_dlp.YoutubeDL', side_effect=lambda options=None: FausseVideo(options, pistes)), \
+                mock.patch('transcription.telecharger_sous_titres', side_effect=telecharger), \
+                mock.patch.object(source, 'commande', side_effect=commande or normaliser) as appels, \
+                mock.patch.object(source, 'ffmpeg', return_value='ffmpeg'):
+            return source.preparer_youtube(ITEM, folder, lambda _: None, lambda: None), appels
 
-    def test_macwhisper_base_falls_back_without_speaker_detection(self):
-        episode = dict(ITEM, source={**ITEM['source'], 'transcriptUrl': None})
-        def transfer(url, path, limit, verify):
-            Path(path).write_bytes(b'audio')
-            return download.empreinte(path)
+    def test_youtube_automatic_subtitles_resume_by_hash_and_rebuild_corrupt_audio(self):
+        pistes = {'subtitles': {}, 'automatic_captions': {'en-orig': [], 'fr': []}}
+        with tempfile.TemporaryDirectory() as folder:
+            result, ffmpeg = self.preparer(folder, pistes, VTT_AUTO)
+            self.assertEqual(result['timingSource'], 'rss_vtt')
+            segments = json.loads(Path(result['segmentsFile']).read_text())['segments']
+            self.assertEqual([(s['text'], s['startMs'], s['endMs']) for s in segments], [('A short story.', 1000, 3000)])
+            self.assertEqual((len(FausseVideo.appels), ffmpeg.call_count), (1, 1))
+            _, ffmpeg = self.preparer(folder, pistes, VTT_AUTO)
+            self.assertEqual((len(FausseVideo.appels), ffmpeg.call_count), (0, 0))
+            (Path(folder) / 'source.mp3').write_bytes(b'corrupted')
+            _, ffmpeg = self.preparer(folder, pistes, VTT_AUTO)
+            self.assertEqual((len(FausseVideo.appels), ffmpeg.call_count), (0, 1))
+
+    def test_macwhisper_only_without_subtitles_and_without_speaker_detection(self):
         def execute(args, verify):
             if args[0] == 'ffmpeg':
                 Path(args[-1]).write_bytes(b'normalized')
@@ -96,13 +129,14 @@ class SourceTests(unittest.TestCase):
             else:
                 self.assertIn('--no-speakers', args)
                 Path(args[args.index('--output') + 1]).write_text(VTT)
-        with tempfile.TemporaryDirectory() as folder, mock.patch.object(source, 'telecharger', side_effect=transfer), \
-                mock.patch.object(source, 'commande', side_effect=execute), mock.patch.object(source, 'ffmpeg', return_value='ffmpeg'), \
-                mock.patch('transcription.trouver_macwhisper', return_value='mw'):
-            result = source.preparer(episode, folder, lambda _: None, lambda: None)
+        with tempfile.TemporaryDirectory() as folder, mock.patch('transcription.trouver_macwhisper', return_value='mw'):
+            result, _ = self.preparer(folder, {'subtitles': {}, 'automatic_captions': {}}, commande=execute)
             self.assertEqual(result['timingSource'], 'macwhisper_srt')
-            self.assertFalse(result['speakersDetected'])
             self.assertTrue(Path(result['segmentsFile']).is_file())
+
+    def test_podcast_episodes_are_refused(self):
+        with tempfile.TemporaryDirectory() as folder, self.assertRaises(RuntimeError):
+            source.preparer_source({'ref': 'a' * 20, 'source': {'kind': 'episode'}}, folder, lambda _: None, lambda: None)
 
     def test_lost_lease_stops_subprocess(self):
         process = mock.Mock()

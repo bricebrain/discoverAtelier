@@ -28,9 +28,7 @@ def _dossier_cache(root, snapshot):
         if not MOTIF_NOTE.fullmatch(snapshot['ref']):
             raise ValueError('Identifiant de note invalide dans le dossier.')
         return root / ('reflection-' + snapshot['ref'])
-    if not MOTIF_EPISODE.fullmatch(snapshot['ref']):
-        raise ValueError('Identifiant d’épisode invalide dans le dossier.')
-    return root / snapshot['ref']
+    raise ValueError(discover_source.PODCASTS_RETIRES)
 
 
 def etiquette(snapshot):
@@ -59,7 +57,7 @@ def _segments_source(snapshot, root, options, etape, verifier):
         elif kind == 'youtube':
             resultat = discover_source.preparer_youtube(sub, _dossier_cache(root, snapshot), etape, verifier)
         else:
-            resultat = discover_source.preparer(sub, _dossier_cache(root, snapshot), etape, verifier)
+            raise ValueError(discover_source.PODCASTS_RETIRES)
         doc = json.loads(Path(resultat['segmentsFile']).read_text())
         segments = doc['segments']
         language = doc.get('language') or (resultat.get('source') or {}).get('language') or 'en'

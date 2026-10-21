@@ -143,13 +143,13 @@ class FileDiscover:
         try:
             # Les chemins ne viennent jamais du titre ni du nom de fichier de l'éditeur.
             uuid.UUID(self.item['id'])
-            kind = self.item.get('kind', 'episode')
-            motif = {'episode': r'[0-9a-f]{20}', 'youtube': r'[A-Za-z0-9_-]{11}',
+            kind = self.item.get('kind')
+            motif = {'youtube': r'[A-Za-z0-9_-]{11}',
                      'reflection': r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}',
                      'dossier': r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'}.get(kind)
             if not motif or not re.fullmatch(motif, self.item['ref']):
                 raise ValueError('Identifiant source invalide.')
-            dossier = self.dossier / (self.item['ref'] if kind == 'episode' else f'{kind}-{self.item["ref"]}')
+            dossier = self.dossier / f'{kind}-{self.item["ref"]}'
             resultat = self.preparer(self.item, dossier, self._etape, self.verifier)
             # Le titre et la langue d'une vidéo ou d'un texte ne sont connus qu'après la préparation de la source.
             if isinstance(resultat, dict) and resultat.get('source'):

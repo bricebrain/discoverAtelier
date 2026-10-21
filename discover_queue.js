@@ -22,7 +22,7 @@ const STAGE_TEXT = {
   review: 'En attente de relecture (mode manuel)', tts: 'Création de l’audio anglais (Deepgram ou Heart)', publish: 'Publication dans Discover',
 };
 const COVERAGE = { full: 'Intégral', condensed: 'Condensé', essentials: 'L’essentiel' };
-const KINDS = { episode: 'Podcast', youtube: 'YouTube', reflection: 'Texte · My Mind', dossier: 'Dossier multisource' };
+const KINDS = { youtube: 'YouTube', reflection: 'Texte · My Mind', dossier: 'Dossier multisource' };
 // Un texte n'a ni téléchargement ni audio source : ses étapes commencent au découpage.
 const stepsFor = (kind) => (kind === 'reflection' ? STEPS.filter(([key]) => !['download', 'normalize'].includes(key)) : STEPS);
 const LEVELS = ['A2', 'B1', 'B2', 'C1', 'original'];
@@ -85,9 +85,9 @@ const durationText = (sec) => (sec ? (sec >= 3600 ? `${Math.floor(sec / 3600)} h
 const dateText = (iso) => (iso ? new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short' }).format(new Date(iso)) : '');
 const optionsText = (o) => `${COVERAGE[o.coverage]} · ${o.level === 'original' ? 'anglais non simplifié' : o.level}${o.targetMinutes ? ` · ${o.targetMinutes} min` : ''}${o.faithful ? ' · + fidèle' : ''}`;
 
-/** État d'un épisode, d'après sa dernière demande et sa publication. */
+/** État d'une vidéo d'une chaîne suivie, d'après sa dernière demande (réf. = identifiant YouTube) et sa publication. */
 function episodeStatus(ep) {
-  const item = queueByRef.get(ep.id);
+  const item = queueByRef.get(ep.videoId);
   if (item && item.status === 'leased') return ['run', 'En préparation · ' + (STEPS.find((s) => s[2].includes(item.stage))?.[1] || '…')];
   if (item && item.status === 'pending') return ['wait', item.stage === 'review' ? 'À relire' : 'En file'];
   if (item && item.status === 'failed') return ['fail', 'Échec'];
@@ -215,13 +215,13 @@ function prepPanel(ep) {
   cancel.onclick = () => { openPrep = null; renderEpisodes(); };
   actions.append(go, cancel);
   if (ep.contentId) {
-    // L'épisode a déjà des versions dans l'app : on peut les supprimer d'ici.
+    // La vidéo a déjà des versions dans l'app : on peut les supprimer d'ici.
     const del = el('button', 'Supprimer la version publiée', 'danger');
     del.onclick = async () => {
-      if (!confirm(`Supprimer les versions préparées de « ${ep.title} » ?\n\nElles disparaissent de l’app (audio et transcription) et de ce Mac. L’épisode reste.`)) return;
+      if (!confirm(`Supprimer les versions préparées de « ${ep.title} » ?\n\nElles disparaissent de l’app (audio et transcription) et de ce Mac. La vidéo reste.`)) return;
       del.disabled = true;
       try {
-        await api('delete-content', { contentId: ep.contentId, kind: 'episode', ref: ep.id });
+        await api('delete-content', { contentId: ep.contentId, kind: 'youtube', ref: ep.videoId });
         ep.contentId = null;
         openPrep = null;
         banner('ok', 'Version supprimée', `« ${ep.title} » n’a plus de version préparée dans l’app.`);
@@ -254,12 +254,11 @@ function renderEpisodes() {
     body.append(el('div', ep.showTitle, 'show'), el('div', ep.title, 'title'));
     const meta = el('div', null, 'meta');
     meta.append(el('span', [dateText(ep.publishedAt), durationText(ep.durationSec), ep.language === 'fr' ? 'Français' : 'Anglais', categories[ep.category]].filter(Boolean).join(' · ')));
-    if (ep.transcriptType) meta.append(el('span', '· transcription fournie'));
     const status = episodeStatus(ep);
     if (status) meta.append(el('span', status[1], 'pill ' + status[0]));
     body.append(meta);
     card.append(body);
-    const item = queueByRef.get(ep.id);
+    const item = queueByRef.get(ep.videoId);
     const busy = item && (item.status === 'pending' || item.status === 'leased');
     const btn = el('button', ep.contentId ? 'Autre version' : 'Préparer', busy ? '' : 'primary');
     btn.disabled = busy;
@@ -433,7 +432,7 @@ function renderQueue() {
     if (item.status === 'done' && item.contentId) {
       const b = el('button', 'Supprimer la version publiée', 'danger');
       b.onclick = () => {
-        if (!confirm(`Supprimer les versions préparées de « ${item.title} » ?\n\nElles disparaissent de l’app (audio et transcription) et de ce Mac. L’épisode ou la note d’origine restent.`)) return;
+        if (!confirm(`Supprimer les versions préparées de « ${item.title} » ?\n\nElles disparaissent de l’app (audio et transcription) et de ce Mac. La vidéo ou la note d’origine restent.`)) return;
         act('delete-content', item, b, { contentId: item.contentId, kind: item.kind, ref: item.ref });
       };
       actions.append(b);
@@ -472,7 +471,7 @@ async function refreshQueue(force = false) {
     const data = await api('queue');
     items = data.items;
     queueByRef = new Map();
-    for (const i of items) if (i.kind === 'episode' && !queueByRef.has(i.ref)) queueByRef.set(i.ref, i);
+    for (const i of items) if (i.kind === 'youtube' && !queueByRef.has(i.ref)) queueByRef.set(i.ref, i);
     renderEngine(data.state);
     // On ne redessine que si un état a changé : la liste garde ainsi le focus et le panneau ouvert.
     const signature = JSON.stringify(items.map((i) => [i.id, i.status, i.stage, i.attempts, i.error]));
