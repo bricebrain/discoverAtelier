@@ -37,7 +37,9 @@ def variant_key(options):
     return key
 
 
-def construire(item, source, prepared, audio, folder, faithful=None, faithful_audio=None, previous=None):
+def construire(item, source, prepared, audio, folder, faithful=None, faithful_audio=None, previous=None, guide=None):
+    """guide (original guidé) : {'target': 'source' ou 'faithful', 'guide', 'quiz', 'fr' (source anglaise)} ;
+    prepared et audio valent alors None : aucune adaptation n'est publiée."""
     folder = Path(folder)
     folder.mkdir(parents=True, exist_ok=True)
     language = item['source']['language']
@@ -61,10 +63,17 @@ def construire(item, source, prepared, audio, folder, faithful=None, faithful_au
         files[path] = {'sha256': empreinte(local), 'size': local.stat().st_size, 'contentType': content_type}
         paths[path] = str(local)
 
-    def document(key, segments, variant, key_vocab=None):
+    def document(key, segments, variant, key_vocab=None, target=None):
         doc = {'schemaVersion': 1, 'variantKey': key, 'segments': segments}
         if key_vocab:
             doc['keyVocab'] = key_vocab
+        if guide and guide['target'] == target:
+            doc['guide'] = guide['guide']
+            if guide.get('quiz'):
+                try:
+                    variant['quiz'] = discover_quiz.valider(guide['quiz'], len(segments))
+                except (ValueError, jsonschema.ValidationError):
+                    pass  # Quiz rejeté, contenu publiable.
         local = folder / (key + '.json')
         pipeline.ecrire_json(str(local), doc)
         add('segments/' + key + '.json', local, 'application/json')
@@ -98,10 +107,12 @@ def construire(item, source, prepared, audio, folder, faithful=None, faithful_au
     original = [{k: s[k] for k in ('id', 'text', 'speaker', 'provenance') if s.get(k) is not None} |
                 {'startMs': s.get('startMs') if timed else None, 'endMs': s.get('endMs') if timed else None}
                 for s in original_doc['segments']]
+    if guide and guide.get('fr'):
+        original = [{**s, 'fr': guide['fr'][s['id']]} if guide['fr'].get(s['id']) else s for s in original]
     source_variant = {'key': original_key, 'kind': 'source', 'language': language, 'coverage': 'full'}
     if original_audio:
         source_variant['audio'] = original_audio
-    document(original_key, original, source_variant)
+    document(original_key, original, source_variant, target='source')
 
     def narrated(key, script, result, variant):
         timing = json.loads(Path(result['timingsFile']).read_text())
@@ -112,23 +123,25 @@ def construire(item, source, prepared, audio, folder, faithful=None, faithful_au
         path = 'audio/' + key + '.mp3'
         add(path, result['file'], 'audio/mpeg')
         variant['audio'] = {'source': 'r2', 'file': path, 'origin': result.get('origin', 'kokoro'), 'durationMs': result['durationMs'], 'timingSource': result.get('timingSource', 'kokoro')}
-        document(key, mapped, variant, prepared['script'].get('keyVocab') if variant['kind'] == 'adaptation' else None)
+        document(key, mapped, variant, prepared['script'].get('keyVocab') if variant['kind'] == 'adaptation' else None,
+                 target={'faithful_translation': 'faithful', 'adaptation': 'adaptation'}.get(variant['kind']))
 
     if faithful:
         narrated('en-faithful', faithful, faithful_audio, {'key': 'en-faithful', 'kind': 'faithful_translation',
                   'language': 'en', 'coverage': 'full', 'derivedFrom': original_key})
-    key = variant_key(options)
-    adaptation = {'key': key, 'kind': 'adaptation', 'language': 'en', 'cefrLevel': None if options['level'] == 'original' else options['level'],
-                  'style': options['style'], 'coverage': options['coverage'], 'derivedFrom': original_key,
-                  'generation': prepared['generation'], 'evaluation': prepared['evaluation']}
-    if prepared.get('quiz'):
-        try:
-            adaptation['quiz'] = discover_quiz.valider(prepared['quiz'], len(prepared['script']['segments']))
-        except (ValueError, jsonschema.ValidationError):
-            pass  # Quiz rejeté, contenu publiable.
-    if options['coverage'] != 'full':
-        adaptation['condensation'] = {'targetMinutes': options['targetMinutes'], 'sourceMinutes': source_duration / 60, 'excludeAds': True}
-    narrated(key, prepared['script']['segments'], audio, adaptation)
+    if prepared is not None:
+        key = variant_key(options)
+        adaptation = {'key': key, 'kind': 'adaptation', 'language': 'en', 'cefrLevel': None if options['level'] == 'original' else options['level'],
+                      'style': options['style'], 'coverage': options['coverage'], 'derivedFrom': original_key,
+                      'generation': prepared['generation'], 'evaluation': prepared['evaluation']}
+        if prepared.get('quiz'):
+            try:
+                adaptation['quiz'] = discover_quiz.valider(prepared['quiz'], len(prepared['script']['segments']))
+            except (ValueError, jsonschema.ValidationError):
+                pass  # Quiz rejeté, contenu publiable.
+        if options['coverage'] != 'full':
+            adaptation['condensation'] = {'targetMinutes': options['targetMinutes'], 'sourceMinutes': source_duration / 60, 'excludeAds': True}
+        narrated(key, prepared['script']['segments'], audio, adaptation)
     if previous:
         old_source = next(v for v in previous['variants'] if v['kind'] == 'source')
         # Une réinterprétation des mêmes IDs casserait les renvois des anciennes variantes.

@@ -7,6 +7,8 @@ from discover_citations import nettoyer_segments
 import discover_audio
 import discover_speech
 import discover_cible
+import discover_guide
+import discover_source
 import discover_englishfluency
 import discover_quiz
 import discover_costs
@@ -25,11 +27,82 @@ def source_minutes(sources):
     return max((s.get('endMs') or 0 for s in sources), default=0) / 60_000
 
 
+def preparer_guide(item, source, root, folder, etape, verifier, config, client):
+    """Original guidé, plus un guide sur un passage. Trois cas, sans jamais réécrire l'anglais :
+    vidéo anglaise (l'original tel quel), texte anglais (lu tel quel par une voix), source française
+    (traduite en anglais naturel et lue en entier)."""
+    doc = json.loads(Path(source['segmentsFile']).read_text())
+    sources, niveau = doc['segments'], item['options']['level']
+    if not sources:
+        raise discover_source.SourceRefusee('Original guidé : la source ne contient aucun texte.')
+    langue = (doc.get('language') or item['source'].get('language') or 'en')[:2]
+    horodatee = bool(source.get('audioFile')) and all(s.get('startMs') is not None for s in sources)
+    words = sum(len(s['text'].split()) for s in sources)
+    if isinstance(getattr(client, 'max_calls', None), int):
+        client.max_calls = max(client.max_calls, words // 300 + 10)
+        client.max_tokens = max(client.max_tokens, words * 20)
+    francais, anglais, audio_anglais = None, None, None
+    if langue == 'en' and horodatee:
+        francais = discover_guide.traduire_vers_francais(client, sources, etape)
+        segments_guide, voix, cible = sources, 'original', 'source'
+    else:
+        if langue == 'en':  # texte anglais : lu tel quel, traduction française à la demande
+            francais = discover_guide.traduire_vers_francais(client, sources, etape)
+            anglais = [{'id': s['id'], 'text': s['text'], 'fr': francais[s['id']], 'speaker': 'Narrator',
+                        'sourceSegments': [s['id']]} for s in sources]
+            cible = 'adaptation'
+        else:
+            anglais = pipeline.lire_json(str(folder / 'guided-english.json')) or discover_guide.traduire_vers_anglais(client, sources, etape)
+            cible = 'faithful'
+        anglais = nettoyer_segments(anglais, {s['id'] for s in sources})
+        pipeline.ecrire_json(str(folder / 'guided-english.json'), anglais)
+        minutes = source_minutes(sources)
+        speech = discover_speech.Session([anglais], root.parent, config, folder, item['source'].get('title', ''),
+                                         long_minutes=minutes if minutes > LONG_SOURCE_MINUTES else None)
+        etape('tts')
+        speeds = speech.kokoro_speeds(verifier) if speech.provider == 'kokoro' else {}
+        audio_anglais = speech.generate(anglais, folder, 'en-faithful', verifier, speeds)
+        timings = {t['id']: t for t in json.loads(Path(audio_anglais['timingsFile']).read_text())}
+        segments_guide = [{**s, 'startMs': timings[s['id']]['startMs'], 'endMs': timings[s['id']]['endMs']} for s in anglais]
+        voix = 'synthetic'
+    verifier()
+    etape('guide')
+    passage = discover_guide.choisir_passage(client, segments_guide, niveau)
+    guide, quiz = discover_guide.generer_guide(client, segments_guide, passage, niveau, voix, config)
+    pipeline.ecrire_json(str(folder / 'guide.json'), {'guide': guide, 'quiz': quiz, 'generation': client.statistiques()})
+    verifier()
+    etape('publish')
+    content_id = identifiant_contenu(item)
+    try:
+        previous = discover_cible.requete(config, 'GET', '/atelier/contents/' + content_id + '/manifest')['manifest']
+    except discover_cible.ErreurDiscover as e:
+        if e.status != 404:
+            raise
+        previous = None
+    extras = {'target': cible, 'guide': guide, 'quiz': quiz, 'fr': francais if cible == 'source' else None}
+    if cible == 'adaptation':
+        # Texte anglais lu tel quel : publié comme version « intégrale non simplifiée » de la source écrite.
+        lu = {**item, 'options': {**item['options'], 'coverage': 'full', 'level': 'original', 'style': 'narration', 'targetMinutes': None}}
+        prepared = {'script': {'segments': anglais, 'keyVocab': []}, 'evaluation': {'verdict': 'ok'}, 'generation': client.statistiques()}
+        manifest, paths = construire(lu, source, prepared, audio_anglais, folder / 'publication', previous=previous, guide=extras)
+    else:
+        manifest, paths = construire(item, source, None, None, folder / 'publication', anglais, audio_anglais, previous, guide=extras)
+    result = discover_cible.publier_manifeste(manifest, paths, config=config, demande=item, verifier=verifier)
+    pipeline.ecrire_json(str(folder / 'published.json'), result)
+    try:  # comptabilité locale : une publication réussie ne doit pas échouer pour un problème de coûts
+        discover_costs.enregistrer(item, client.appels, folder, root.parent, config)
+    except Exception as erreur:
+        print('Coûts de la préparation non enregistrés : ' + str(erreur)[:200])
+    return result
+
+
 def preparer(item, source, root, etape, verifier, config, client=None):
     root = Path(root)
     folder = root / ('prepared-' + empreinte(item['options'])[:16])
     folder.mkdir(parents=True, exist_ok=True)
     client = client or Client(root / 'gemini-cache', verifier)
+    if item['options'].get('coverage') == 'guided':
+        return preparer_guide(item, source, root, folder, etape, verifier, config, client)
     sources = json.loads(Path(source['segmentsFile']).read_text())['segments']
     # Dossier : le modèle voit chaque passage avec le titre de sa source, sans la provenance (réservée au manifeste).
     dossier = item['source'].get('kind') == 'dossier'

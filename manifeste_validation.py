@@ -171,6 +171,17 @@ def valider_segments(doc, variant, source_ids=None):
             refuser('missing_source_segments')
         if any(i not in (source_ids or set()) for i in s.get('sourceSegments', [])):
             refuser('invalid_source_segments')
+    guide = doc.get('guide')
+    if guide:
+        # Guide : version anglaise horodatée, passage dans l'ordre, renvois vers des passages existants.
+        index = {s['id']: i for i, s in enumerate(segments)}
+        debut, fin = index.get(guide['passage']['fromSegment']), index.get(guide['passage']['toSegment'])
+        if variant['language'].split('-')[0] != 'en' or not timed or debut is None or fin is None or debut > fin:
+            refuser('invalid_guide')
+        if any(n['segmentId'] not in index for n in guide['expressions'] + guide['listening']):
+            refuser('invalid_guide')
+        if guide['voice'] == 'synthetic' and guide['listening']:
+            refuser('invalid_guide')
     return doc
 
 

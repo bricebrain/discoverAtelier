@@ -11,17 +11,17 @@ const STEPS = [
   ['plan', 'Plan', ['plan']],
   ['extract', 'Extraction', ['extract']],
   ['adapt', 'Écriture', ['adapt', 'translate']],
-  ['evaluate', 'Contrôle', ['evaluate', 'review']],
+  ['evaluate', 'Contrôle', ['evaluate', 'review', 'guide']],
   ['tts', 'Audio anglais', ['tts']],
   ['publish', 'Publication', ['publish']],
 ];
 const STAGE_TEXT = {
-  download: 'Téléchargement de l’audio', normalize: 'Préparation de l’audio', transcribe: 'Transcription (sous-titres de la vidéo, sinon MacWhisper)',
+  guide: 'Guide d’écoute (passage, expressions, quiz)', download: 'Téléchargement de l’audio', normalize: 'Préparation de l’audio', transcribe: 'Transcription (sous-titres de la vidéo, sinon MacWhisper)',
   source_ready: 'Source prête', plan: 'Plan de l’épisode (Gemini)', extract: 'Extraction des faits et arguments (Gemini)',
   adapt: 'Écriture de la version anglaise (Gemini)', translate: 'Traduction fidèle (Gemini)', evaluate: 'Contrôle de fidélité',
   review: 'En attente de relecture (mode manuel)', tts: 'Création de l’audio anglais (Deepgram ou Heart)', publish: 'Publication dans Discover',
 };
-const COVERAGE = { full: 'Intégral', condensed: 'Condensé', essentials: 'L’essentiel' };
+const COVERAGE = { guided: 'Original guidé', full: 'Intégral', condensed: 'Condensé', essentials: 'L’essentiel' };
 const KINDS = { youtube: 'YouTube', reflection: 'Texte · My Mind', dossier: 'Dossier multisource' };
 // Un texte n'a ni téléchargement ni audio source : ses étapes commencent au découpage.
 const stepsFor = (kind) => (kind === 'reflection' ? STEPS.filter(([key]) => !['download', 'normalize'].includes(key)) : STEPS);
@@ -120,8 +120,9 @@ function renderEngine(state) {
 
 // ── Réglages d'une préparation (épisode, vidéo, texte) ───────────────────────
 /** Éditeur couverture / niveau / durée / fidèle ; `value()` rend les options à envoyer. */
-function optionsEditor({ long = false, faithfulAllowed = false } = {}) {
-  const opts = { coverage: long ? 'condensed' : 'full', level: 'B1', targetMinutes: long ? 12 : null, faithful: false };
+function optionsEditor({ faithfulAllowed = false } = {}) {
+  // Original guidé par défaut : l'anglais n'est pas réécrit, le niveau règle seulement les explications du guide.
+  const opts = { coverage: 'guided', level: 'B1', targetMinutes: null, faithful: false };
   const box = el('div');
   box.style.display = 'grid';
   box.style.gap = '10px';
@@ -138,6 +139,7 @@ function optionsEditor({ long = false, faithfulAllowed = false } = {}) {
       b.onclick = () => {
         opts[key] = v;
         if (key === 'coverage') opts.targetMinutes = v === 'condensed' ? 12 : v === 'essentials' ? 4 : null;
+        if (key === 'coverage' && v === 'guided' && opts.level === 'original') opts.level = 'B1';
         render();
       };
       group.append(b);
@@ -147,10 +149,11 @@ function optionsEditor({ long = false, faithfulAllowed = false } = {}) {
   };
   const render = () => {
     box.replaceChildren();
-    box.append(seg('Couverture', ['full', 'condensed', 'essentials'], 'coverage', COVERAGE));
-    box.append(seg('Niveau', LEVELS, 'level', { A2: 'A2', B1: 'B1', B2: 'B2', C1: 'C1', original: 'Non simplifié' }));
+    box.append(seg('Formule', ['guided', 'full', 'condensed', 'essentials'], 'coverage', COVERAGE));
+    const guided = opts.coverage === 'guided';
+    box.append(seg(guided ? 'Explications' : 'Niveau', guided ? LEVELS.filter((l) => l !== 'original') : LEVELS, 'level', { A2: 'A2', B1: 'B1', B2: 'B2', C1: 'C1', original: 'Non simplifié' }));
     const row = el('div', null, 'row');
-    if (opts.coverage !== 'full') {
+    if (opts.coverage !== 'full' && !guided) {
       const [min, max] = opts.coverage === 'condensed' ? [8, 20] : [3, 6];
       row.append(el('label', 'Durée cible'));
       const input = el('input');
@@ -159,7 +162,7 @@ function optionsEditor({ long = false, faithfulAllowed = false } = {}) {
       input.oninput = () => { opts.targetMinutes = Math.max(min, Math.min(max, Number(input.value) || min)); };
       row.append(input, el('span', `min (${min} à ${max})`, 'small muted'));
     }
-    if (faithfulAllowed) {
+    if (faithfulAllowed && !guided) {
       const label = el('label');
       const check = el('input');
       check.type = 'checkbox';
@@ -175,7 +178,8 @@ function optionsEditor({ long = false, faithfulAllowed = false } = {}) {
     element: box,
     value: () => {
       const body = { coverage: opts.coverage, level: opts.level, faithful: opts.faithful };
-      if (opts.coverage !== 'full') body.targetMinutes = opts.targetMinutes;
+      if (opts.coverage !== 'full' && opts.coverage !== 'guided') body.targetMinutes = opts.targetMinutes;
+      if (opts.coverage === 'guided') body.faithful = false;
       return body;
     },
     coverage: () => opts.coverage,
