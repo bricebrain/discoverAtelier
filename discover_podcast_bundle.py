@@ -10,6 +10,8 @@ from discover_download import empreinte
 from discover_ai import empreinte as fingerprint
 from manifeste_validation import valider_manifeste, valider_provenance, valider_segments
 
+DEBORDEMENT_FIN_MS = 5000  # écart toléré entre la fin des sous-titres YouTube et celle de l'audio
+
 
 def content_id(item):
     """Identifiant stable du contenu publié, selon la source de la demande."""
@@ -71,10 +73,15 @@ def construire(item, source, prepared, audio, folder, faithful=None, faithful_au
         variants.append(variant)
 
     timed = bool(original_doc.get('timingSource') != 'none')
+    duree_ms = round(source_duration * 1000)
+    dernier = original_doc['segments'][-1] if original_doc['segments'] else {}
+    # Les sous-titres YouTube finissent souvent quelques secondes après l'audio téléchargé : on ramène cette fin.
+    if kind == 'youtube' and (dernier.get('startMs') or 0) < duree_ms < (dernier.get('endMs') or 0) <= duree_ms + DEBORDEMENT_FIN_MS:
+        dernier['endMs'] = duree_ms
     last_start, last_end = -1, -1
     for s in original_doc['segments']:
         a, b = s.get('startMs'), s.get('endMs')
-        if a is None or b is None or a <= last_start or b <= last_end or b <= a or b > round(source_duration * 1000):
+        if a is None or b is None or a <= last_start or b <= last_end or b <= a or b > duree_ms:
             timed = False
             break
         last_start, last_end = a, b

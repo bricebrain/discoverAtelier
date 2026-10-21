@@ -68,6 +68,18 @@ class PreparedBundleTests(unittest.TestCase):
             manifest, _ = bundle.construire(self.item, self.source, self.prepared, self.audio, self.root / 'yt')
         self.assertEqual(manifest['variants'][0]['audio']['timingSource'], 'rss_vtt')
 
+    def test_youtube_subtitles_ending_just_after_the_audio_stay_timed(self):
+        path = Path(self.source['segmentsFile'])
+        doc = json.loads(path.read_text()); doc['timingSource'] = 'rss_vtt'
+        for fin, attendu in ((3000, ('rss_vtt', 2000)), (12000, ('none', None))):
+            with self.subTest(fin=fin):
+                doc['segments'][0]['endMs'] = fin
+                path.write_text(json.dumps(doc))
+                manifest, paths = bundle.construire(self.item, self.source, self.prepared, self.audio, self.root / str(fin))
+                source_variant = manifest['variants'][0]
+                segments = json.loads(Path(paths[source_variant['segmentsFile']]).read_text())['segments']
+                self.assertEqual((source_variant['audio']['timingSource'], segments[0]['endMs']), attendu)
+
     def test_target_duration_and_dialogue_have_distinct_keys(self):
         self.options.update(coverage='condensed', targetMinutes=12)
         a = bundle.variant_key(self.options)
