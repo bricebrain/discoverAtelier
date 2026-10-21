@@ -293,12 +293,12 @@ let autoShows = [];
 const PRESETS = { essentials4: 'L’essentiel · 4 min', condensed8: 'Condensé · 8 min' };
 function renderAuto(enabled) {
   $('auto-enabled').checked = enabled;
-  const podcasts = autoShows.filter((s) => s.enabled && s.sourceType !== 'youtube');
-  const active = podcasts.filter((s) => s.autoPrepare).length;
-  // Le Worker ne prépare automatiquement que les podcasts, retirés de Discover : panneau caché tant qu'aucune émission n'est proposée.
-  $('auto-panel').hidden = !podcasts.length;
-  $('auto-summary').textContent = enabled ? `· ${active} émission${active > 1 ? 's' : ''}` : '· coupée';
-  $('auto-shows').replaceChildren(...podcasts.map((s) => {
+  const channels = autoShows.filter((s) => s.enabled);
+  const active = channels.filter((s) => s.autoPrepare).length;
+  // Le Worker prépare automatiquement la dernière vidéo des chaînes YouTube : panneau caché tant qu'aucune chaîne n'est suivie.
+  $('auto-panel').hidden = !channels.length;
+  $('auto-summary').textContent = enabled ? `· ${active} chaîne${active > 1 ? 's' : ''}` : '· coupée';
+  $('auto-shows').replaceChildren(...channels.map((s) => {
     const row = el('div', null, 'auto-row');
     const box = Object.assign(el('input'), { type: 'checkbox', checked: s.autoPrepare, disabled: !enabled });
     box.setAttribute('aria-label', 'Préparer automatiquement ' + s.title);
