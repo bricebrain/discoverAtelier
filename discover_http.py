@@ -38,7 +38,8 @@ def _erreur_discover(erreur):
         return 'Worker Discover injoignable : vérifier la connexion Internet et « workerUrl ».'
     return None
 
-ASSETS = {'/discover': ('discover_queue.html', 'text/html; charset=utf-8'),
+ASSETS = {'/': ('discover_queue.html', 'text/html; charset=utf-8'),
+          '/discover': ('discover_queue.html', 'text/html; charset=utf-8'),
           '/discover_queue.js': ('discover_queue.js', 'text/javascript; charset=utf-8'),
           '/discover_tts_ui.js': ('discover_tts_ui.js', 'text/javascript; charset=utf-8'),
           '/discover_review.js': ('discover_review.js', 'text/javascript; charset=utf-8')}

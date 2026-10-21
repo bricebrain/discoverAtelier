@@ -2,15 +2,15 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "atelier",
+      "name": "atelier-discover",
       "runtimeExecutable": "/usr/bin/env",
       "runtimeArgs": [
-        "CONVERTISSEUR_SANS_NAVIGATEUR=1",
-        "CONVERTISSEUR_PORT=8765",
+        "DISCOVER_ATELIER_SANS_NAVIGATEUR=1",
+        "DISCOVER_ATELIER_PORT=8766",
         "/usr/local/bin/python3",
-        "convertisseur_web.py"
+        "atelier_discover.py"
       ],
-      "port": 8765
+      "port": 8766
     }
   ]
 }

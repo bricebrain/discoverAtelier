@@ -1,6 +1,6 @@
 # À préparer — Discover (lots 8 et 9)
 
-Lancer `lancer_atelier.command`, puis **À préparer · Discover** dans la barre de l’Atelier. La file vient du Worker configuré dans `config_discover.json` ; le jeton n’est jamais transmis au navigateur.
+Lancer `lancer_discover.command` : la page de l’Atelier Discover s’ouvre directement. La file vient du Worker configuré dans `config_discover.json` ; le jeton n’est jamais transmis au navigateur.
 
 Sur le téléphone, choisir **Préparer en anglais** sur un épisode. L’Atelier télécharge et normalise l’audio, récupère la transcription officielle ou utilise MacWhisper, puis prépare et publie la version choisie : Intégral, Condensé ou L’essentiel, au niveau et à la durée demandés. Le suivi et l’annulation restent disponibles dans Discover.
 
