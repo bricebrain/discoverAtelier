@@ -120,6 +120,58 @@ class TestDebit(unittest.TestCase):
         self.assertEqual(horodatage.debit_global(segments), 180)
 
 
+# Extrait réel (raccourci) d'une piste YouTube automatique : écho de la ligne précédente et cues de 10 ms.
+VTT_AUTOMATIQUE = """WEBVTT
+Kind: captions
+Language: en
+
+00:00:00.500 --> 00:00:03.000 align:start position:0%
+ 
+[music]
+
+00:00:03.000 --> 00:00:04.950 align:start position:0%
+ 
+&gt;&gt; For<00:00:03.200><c> me,</c><00:00:03.400><c> it's</c><00:00:03.600><c> great.</c><00:00:04.000><c> We</c><00:00:04.400><c> play</c>
+
+00:00:04.950 --> 00:00:04.960 align:start position:0%
+&gt;&gt; For me, it's great. We play
+ 
+
+00:00:04.960 --> 00:00:06.000 align:start position:0%
+&gt;&gt; For me, it's great. We play
+well<00:00:05.200><c> together.</c><00:00:05.600><c> &gt;&gt;</c><00:00:05.800><c> Merci.</c>
+
+00:00:06.000 --> 00:00:06.010 align:start position:0%
+well together. &gt;&gt; Merci.
+ 
+"""
+
+
+class TestVttAutomatique(unittest.TestCase):
+    def test_phrases_sans_echo_ni_annotations(self):
+        phrases = horodatage.lire_vtt_automatique(VTT_AUTOMATIQUE)
+        self.assertEqual([p["text"] for p in phrases],
+                         ["For me, it's great.", "We play well together.", "Merci."])
+        self.assertEqual([p["startMs"] for p in phrases], [3000, 4000, 5800])
+
+    def test_une_phrase_finit_avec_son_dernier_mot(self):
+        phrases = horodatage.lire_vtt_automatique(VTT_AUTOMATIQUE)
+        # « great. » est dans la cue qui finit à 4 950 ms, mais la phrase suivante commence à 4 000 ms.
+        self.assertEqual([p["endMs"] for p in phrases], [4000, 5800, 6000])
+        statut, _ = horodatage.verifier_timings(horodatage.regrouper_repliques(phrases))
+        self.assertEqual(statut, "valid")
+
+    def test_phrase_sans_ponctuation_coupee(self):
+        mots = "".join(f"<00:00:{10 + i // 10:02d}.{(i % 10) * 100:03d}><c> mot</c>" for i in range(120))
+        vtt = "WEBVTT\n\n00:00:09.000 --> 00:00:23.000\n \ndebut" + mots + "\n"
+        phrases = horodatage.lire_vtt_automatique(vtt)
+        self.assertGreater(len(phrases), 1)
+        self.assertTrue(all(len(p["text"]) <= horodatage.PHRASE_MAX for p in phrases))
+
+    def test_vide(self):
+        self.assertEqual(horodatage.lire_vtt_automatique("WEBVTT\n"), [])
+
+
 class TestTimingsKokoro(unittest.TestCase):
     def test_calcul_sur_les_echantillons(self):
         timings, total = tts_kokoro.calculer_timings(

@@ -3,12 +3,14 @@
 
 Fonctions pures, sans MacWhisper ni Kokoro :
 - lecture d'un SRT MacWhisper et texte brut dérivé ;
+- phrases horodatées d'une piste YouTube automatique ;
 - regroupement des répliques en segments (~220 caractères, sans jamais
   couper une réplique) avec startMs / endMs ;
 - contrôles des timings avant publication ;
 - débit (mots par minute) par segment et global.
 """
 
+import html
 import re
 
 SEGMENT_CIBLE = 220             # caractères visés par segment (comme pipeline.py)
@@ -44,6 +46,84 @@ def lire_srt(texte):
                                   "text": contenu})
             break
     return repliques
+
+
+_ENTETE_VTT = re.compile(r"^(\d+):(\d{2}):(\d{2})\.(\d{3})\s+-->\s+(\d+):(\d{2}):(\d{2})\.(\d{3})")
+_MOT_HORODATE = re.compile(r"<(\d+):(\d{2}):(\d{2})\.(\d{3})>")
+_FIN_DE_PHRASE = re.compile(r"[.!?…][\"'”»)]*$")
+PHRASE_MAX = 400  # une phrase sans ponctuation est coupée au-delà
+
+
+def lire_vtt_automatique(texte):
+    """Phrases horodatées d'une piste YouTube automatique (.vtt).
+
+    Chaque cue répète la ligne précédente en « écho » : seule sa dernière
+    ligne est nouvelle, avec l'heure de chaque mot (<hh:mm:ss.mmm>). Les
+    mots sont recollés puis recoupés en phrases sur la ponctuation et sur
+    les changements d'intervenant (« >> »). Les annotations entre crochets
+    ([music]) sont retirées. Une phrase finit avec la cue de son dernier
+    mot : les silences et musiques ne restent pas surlignés.
+    Renvoie [{"startMs", "endMs", "text"}]."""
+    mots = []
+    lignes = html.unescape(texte or "").lstrip("﻿").replace("\r\n", "\n").split("\n")
+    i = 0
+    while i < len(lignes):
+        entete = _ENTETE_VTT.match(lignes[i].strip())
+        i += 1
+        if not entete:
+            continue
+        debut, fin = _ms(*entete.groups()[:4]), _ms(*entete.groups()[4:])
+        contenu = []
+        while i < len(lignes) and lignes[i] != "":
+            contenu.append(lignes[i])
+            i += 1
+        # Les cues de transition (10 ms) finissent par une ligne blanche : rien de neuf.
+        if not contenu or not contenu[-1].strip():
+            continue
+        morceaux = _MOT_HORODATE.split(contenu[-1])
+        instants = [debut] + [_ms(*morceaux[k:k + 4]) for k in range(1, len(morceaux), 5)]
+        for instant, bout in zip(instants, morceaux[0::5]):
+            for mot in re.sub(r"<[^>]*>", "", bout).split():
+                mots.append((instant, mot, fin))
+
+    phrases, courante = [], []
+
+    def clore():
+        if courante:
+            phrases.append({"startMs": courante[0][0], "endMs": courante[-1][2],
+                            "text": " ".join(m for _, m, _ in courante)})
+            courante.clear()
+
+    entre_crochets = False
+    for instant, mot, fin in mots:
+        if mot.startswith("["):
+            entre_crochets = True
+        if entre_crochets:
+            entre_crochets = not mot.endswith("]")
+            continue
+        if mot == ">>":
+            clore()
+            continue
+        if courante and sum(len(m) + 1 for _, m, _ in courante) + len(mot) > PHRASE_MAX:
+            clore()
+        courante.append((instant, mot, fin))
+        if _FIN_DE_PHRASE.search(mot):
+            clore()
+    clore()
+
+    # Débuts strictement croissants : une phrase qui commence au même instant rejoint la précédente.
+    resultat = []
+    for phrase in phrases:
+        if resultat and phrase["startMs"] <= resultat[-1]["startMs"]:
+            resultat[-1]["text"] += " " + phrase["text"]
+            resultat[-1]["endMs"] = phrase["endMs"]
+        else:
+            resultat.append(phrase)
+    for courant, suivant in zip(resultat, resultat[1:]):
+        courant["endMs"] = min(courant["endMs"], suivant["startMs"])
+    for phrase in resultat:
+        phrase["endMs"] = max(phrase["endMs"], phrase["startMs"] + 1)
+    return resultat
 
 
 def srt_vers_texte(repliques):

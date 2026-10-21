@@ -78,7 +78,8 @@ def construire(item, source, prepared, audio, folder, faithful=None, faithful_au
             timed = False
             break
         last_start, last_end = a, b
-    if original_doc.get('timingSource') in ('rss_srt', 'rss_vtt') and original_doc['segments']:
+    # Contrôle d'une transcription de flux contre l'audio publié ; une vidéo YouTube fournit les deux (fin en musique fréquente).
+    if kind != 'youtube' and original_doc.get('timingSource') in ('rss_srt', 'rss_vtt') and original_doc['segments']:
         reference_end = original_doc['segments'][-1].get('endMs')
         if reference_end is None or abs(reference_end - source_duration*1000) > 1500:
             timed = False

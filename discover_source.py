@@ -1,4 +1,4 @@
-"""Point de reprise source : audio mono 64 kbit/s, transcription RSS ou MacWhisper et segments."""
+"""Point de reprise source : audio mono 64 kbit/s, transcription (RSS, sous-titres YouTube, sinon MacWhisper) et segments."""
 import html
 import json
 import re
@@ -203,6 +203,29 @@ def _transcrire_macwhisper(audio, dossier, langue, verifier):
     return repliques(srt.read_text(encoding='utf-8-sig'))
 
 
+def piste_sous_titres(info, langue):
+    """Piste YouTube à utiliser : (clé, automatique) ou (None, None).
+
+    Les sous-titres manuels français ou anglais passent d'abord. Sinon, la
+    piste automatique d'origine (« en-orig ») : les autres pistes
+    automatiques sont des traductions machine de celle-ci."""
+    ordre = [langue, 'en', 'fr'] if langue else ['en', 'fr']
+    manuelles = [k for k in (info.get('subtitles') or {}) if k[:2] in ('fr', 'en')]
+    for cible in ordre:
+        for cle in manuelles:
+            if cle[:2] == cible:
+                return cle, False
+    automatiques = info.get('automatic_captions') or {}
+    origines = [k for k in automatiques if k.endswith('-orig') and k[:2] in ('fr', 'en')]
+    for cible in ordre:
+        for cle in origines:
+            if cle[:2] == cible:
+                return cle, True
+    if langue and langue in automatiques:
+        return langue, True
+    return None, None
+
+
 def preparer_youtube(item, dossier, etape, verifier):
     import transcription
     import yt_dlp
@@ -248,15 +271,17 @@ def preparer_youtube(item, dossier, etape, verifier):
         precedent.update({'source': {**source, **precedent.get('source', {})}, 'options': item['options']})
         return precedent
     cues, timing = None, 'macwhisper_srt'
-    # Sous-titres manuels seulement : les automatiques se chevauchent et seraient moins fiables que MacWhisper.
+    # Sous-titres YouTube (manuels, sinon automatiques d'origine) ; MacWhisper seulement s'il n'y en a aucun.
     try:
-        langue_st, automatiques = transcription.choisir_sous_titres(source['url'], [source['language']] if source['language'] else None)
-        if langue_st and automatiques is False and langue_st[:2] in ('fr', 'en'):
-            chemin = transcription.telecharger_sous_titres(source['url'], str(dossier / 'subtitles'), langue_st, False)
+        cle, automatique = piste_sous_titres(info, source['language'])
+        if cle:
+            chemin = transcription.telecharger_sous_titres(source['url'], str(dossier / 'subtitles'), cle, automatique)
             if chemin:
-                cues = repliques(Path(chemin).read_text(encoding='utf-8-sig')) or None
+                texte = Path(chemin).read_text(encoding='utf-8-sig')
+                lecture = horodatage.lire_vtt_automatique if automatique and chemin.endswith('.vtt') else repliques
+                cues = lecture(texte) or None
                 timing = 'rss_vtt' if chemin.endswith('.vtt') else 'rss_srt'
-                source['language'] = langue_st[:2]
+                source['language'] = cle[:2]
     except Exception:
         verifier()
         cues = None

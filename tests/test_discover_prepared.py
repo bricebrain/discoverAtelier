@@ -72,6 +72,16 @@ class PreparedBundleTests(unittest.TestCase):
         segment_doc = json.loads(Path(paths[source_variant['segmentsFile']]).read_text())
         self.assertIsNone(segment_doc['segments'][0]['startMs'])
 
+    def test_youtube_subtitles_keep_timing_despite_music_at_the_end(self):
+        path = Path(self.source['segmentsFile'])
+        doc = json.loads(path.read_text()); doc['timingSource'] = 'rss_vtt'
+        path.write_text(json.dumps(doc))
+        self.item.update(ref='dQw4w9WgXcQ', source={**self.item['source'], 'kind': 'youtube', 'audioUrl': None,
+                                                                   'url': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'})
+        with mock.patch('pipeline.duree_audio_secondes', return_value=30):
+            manifest, _ = bundle.construire(self.item, self.source, self.prepared, self.audio, self.root / 'yt')
+        self.assertEqual(manifest['variants'][0]['audio']['timingSource'], 'rss_vtt')
+
     def test_target_duration_and_dialogue_have_distinct_keys(self):
         self.options.update(coverage='condensed', targetMinutes=12)
         a = bundle.variant_key(self.options)

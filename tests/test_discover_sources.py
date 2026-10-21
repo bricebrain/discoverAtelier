@@ -21,6 +21,26 @@ class TexteTests(unittest.TestCase):
         self.assertEqual(discover_source.detecter_langue('The debt is a topic that economists follow closely, and it is growing.'), 'en')
 
 
+class PisteSousTitresTests(unittest.TestCase):
+    def test_manuels_d_abord(self):
+        info = {'subtitles': {'en': [], 'de': []}, 'automatic_captions': {'en-orig': [], 'en': []}}
+        self.assertEqual(discover_source.piste_sous_titres(info, 'en'), ('en', False))
+
+    def test_automatique_d_origine_et_pas_une_traduction(self):
+        # Vidéo française : « en » est une traduction machine, « fr-orig » la reconnaissance d'origine.
+        info = {'subtitles': {}, 'automatic_captions': {'en': [], 'fr': [], 'fr-orig': [], 'de': []}}
+        self.assertEqual(discover_source.piste_sous_titres(info, None), ('fr-orig', True))
+        self.assertEqual(discover_source.piste_sous_titres(info, 'fr'), ('fr-orig', True))
+
+    def test_langue_de_la_video_sans_piste_orig(self):
+        info = {'automatic_captions': {'en': [], 'fr': []}}
+        self.assertEqual(discover_source.piste_sous_titres(info, 'en'), ('en', True))
+        self.assertEqual(discover_source.piste_sous_titres(info, None), (None, None))
+
+    def test_aucun_sous_titre(self):
+        self.assertEqual(discover_source.piste_sous_titres({'subtitles': {'live_chat': []}}, 'en'), (None, None))
+
+
 class ManifesteTests(unittest.TestCase):
     def test_identifiants_selon_la_source(self):
         self.assertEqual(bundle.content_id({'ref': 'a' * 20, 'source': {'kind': 'episode'}}), 'podcast-' + 'a' * 20)
