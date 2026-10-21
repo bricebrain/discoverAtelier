@@ -330,7 +330,7 @@ async function loadShows() {
     const data = await api('shows');
     autoShows = data.shows;
     renderAuto(data.autoPrepareEnabled !== false);
-    categories = { tech: 'Tech', science: 'Sciences', economy: 'Économie', news: 'Actualité', football: 'Football', stories: 'Histoires' };
+    categories = { tech: 'Tech', science: 'Sciences', economy: 'Économie', news: 'Actualité', football: 'Football', stories: 'Histoires', humour: 'Humour', study: 'Apprendre l’anglais' };
     for (const c of data.categories || []) if (!categories[c]) categories[c] = c;
     $('category').append(...Object.entries(categories).map(([v, l]) => Object.assign(el('option', l), { value: v })));
     $('show').append(...data.shows.filter((s) => s.enabled).map((s) => Object.assign(el('option', s.title), { value: s.id })));
