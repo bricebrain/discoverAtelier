@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 from kokoro_onnx import Kokoro
-from tts_kokoro import CHEMIN_MODELE, CHEMIN_VOIX, TAUX, decouper_texte
+from tts_kokoro import CHEMIN_MODELE, CHEMIN_VOIX, TAUX, SILENCE_ENTRE_BLOCS, SILENCE_ENTRE_SEGMENTS, decouper_texte
 
 
 def main():
@@ -30,7 +30,7 @@ def main():
         with sf.SoundFile(temporary, 'w', samplerate=TAUX, channels=1, subtype='PCM_16', format='WAV') as writer:
             for i, segment in enumerate(segments):
                 voice, speed = segment['voice'], segment['speed']
-                key = hashlib.sha256(json.dumps([segment['text'], voice, speed, model_version]).encode()).hexdigest()
+                key = hashlib.sha256(json.dumps([segment['text'], voice, speed, model_version, SILENCE_ENTRE_BLOCS]).encode()).hexdigest()
                 path = cache / (key + '.wav')
                 try:
                     valid = path.exists() and sf.info(path).frames > 0
@@ -44,7 +44,7 @@ def main():
                         with sf.SoundFile(part, 'w', samplerate=TAUX, channels=1, subtype='PCM_16', format='WAV') as out:
                             for j, text in enumerate(decouper_texte(segment['text'])):
                                 if j:
-                                    out.write(np.zeros(int(TAUX * .15)))
+                                    out.write(np.zeros(int(TAUX * SILENCE_ENTRE_BLOCS)))
                                 audio, rate = kokoro.create(text, voice=voice, speed=speed,
                                                             lang='en-gb' if voice.startswith('b') else 'en-us')
                                 if rate != TAUX or len(audio) == 0:
@@ -59,7 +59,7 @@ def main():
                         writer.write(block)
                         cursor += len(block)
                 timings.append({'id': segment['id'], 'startMs': round(start / TAUX * 1000), 'endMs': round(cursor / TAUX * 1000)})
-                silence = int(TAUX * .35)
+                silence = int(TAUX * SILENCE_ENTRE_SEGMENTS)
                 writer.write(np.zeros(silence))
                 cursor += silence
                 print(f'PROGRESSION {i + 1}/{len(segments)}', flush=True)

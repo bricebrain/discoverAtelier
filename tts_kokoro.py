@@ -31,8 +31,8 @@ DOSSIER = os.path.dirname(os.path.abspath(__file__))
 CHEMIN_MODELE = os.path.join(DOSSIER, "modeles_tts", "kokoro-v1.0.onnx")
 CHEMIN_VOIX = os.path.join(DOSSIER, "modeles_tts", "voices-v1.0.bin")
 TAILLE_BLOC = 300          # caractères par bloc (limite phonèmes Kokoro)
-SILENCE_ENTRE_BLOCS = 0.15 # seconde
-SILENCE_ENTRE_SEGMENTS = 0.35  # seconde, après chaque segment
+SILENCE_ENTRE_BLOCS = 0.1 # seconde
+SILENCE_ENTRE_SEGMENTS = 0.2  # seconde, après chaque segment
 TAUX = 24000               # échantillons par seconde (Kokoro)
 
 

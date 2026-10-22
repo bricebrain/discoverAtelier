@@ -185,8 +185,12 @@ class TestTimingsKokoro(unittest.TestCase):
         self.assertEqual(total, 24000 * 4.5)
 
     def test_valeurs_par_defaut_coherentes(self):
-        timings, _ = tts_kokoro.calculer_timings([("s001", [2400]), ("s002", [2400])])
-        self.assertEqual(timings[1]["startMs"], 100 + round(tts_kokoro.SILENCE_ENTRE_SEGMENTS * 1000))
+        timings, total = tts_kokoro.calculer_timings([("s001", [2400, 2400]), ("s002", [2400])])
+        self.assertEqual(timings, [
+            {"id": "s001", "startMs": 0, "endMs": 300},
+            {"id": "s002", "startMs": 500, "endMs": 600},
+        ])
+        self.assertEqual(total, 19200)  # 0,8 seconde, dernier silence inclus
         statut, _ = horodatage.verifier_timings(timings)
         self.assertEqual(statut, "valid")
 
