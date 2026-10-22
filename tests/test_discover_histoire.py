@@ -59,8 +59,9 @@ class HistoireTests(unittest.TestCase):
             if kind == 'histoire-audit':
                 self.assertTrue(kwargs['juge'])
                 return rapport
-            valider(obj)
-            return obj
+            brut = {**obj, 'facts_check': [{'fact': f['fact'], 'source_index': 0} for f in obj['facts_check']]}
+            valider(brut)
+            return brut
         client.demander.side_effect = demander
         self.assertEqual(histoire.generer_histoire(client, source, 'B1', {}), obj)
         self.assertEqual(client.demander.call_count, 2)
