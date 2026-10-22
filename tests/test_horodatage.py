@@ -48,6 +48,14 @@ class TestSrt(unittest.TestCase):
         self.assertEqual(repliques[0]["startMs"], 3723500)
         self.assertEqual(repliques[0]["endMs"], 3724250)
 
+    def test_vtt_heures_alignees_sur_les_mots(self):
+        phrases = horodatage.lire_vtt_automatique(VTT_AUTOMATIQUE)
+        for phrase in phrases:
+            self.assertEqual(len(phrase['wordStarts']), len(phrase['text'].split()))
+            self.assertEqual(phrase['wordStarts'][0], phrase['startMs'])
+            self.assertEqual(phrase['wordStarts'], sorted(phrase['wordStarts']))
+        self.assertEqual(phrases[0]['wordStarts'][:3], [3000, 3200, 3400])
+
     def test_blocs_vides_ignores(self):
         self.assertEqual(horodatage.lire_srt("1\n00:00:01,000 --> 00:00:02,000\n\n\n"), [])
         self.assertEqual(horodatage.lire_srt(""), [])

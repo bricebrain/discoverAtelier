@@ -174,6 +174,8 @@ class PublicationTests(unittest.TestCase):
         self.assertEqual(doc['segments'][4]['fr'], 'Traduction s0004')
         self.assertEqual(doc['guide']['passage']['fromSegment'], 's0000')  # 4 min 30 : travaillée en entier
         self.assertNotIn('guide-passage', client.etapes)
+        self.assertTrue(doc['guide']['dictation'])
+        self.assertEqual(doc['guide']['dictation'][0]['segmentId'], 's0000')
 
     def test_source_francaise_traduite_lue_en_entier_et_guidee(self):
         francais = [{**s, 'text': f'La Banque d’Angleterre devrait maintenir ses taux, partie {i}.'} for i, s in enumerate(video(12))]
@@ -190,7 +192,37 @@ class PublicationTests(unittest.TestCase):
         doc = json.loads(Path(paths[anglais['segmentsFile']]).read_text())
         self.assertEqual((doc['guide']['voice'], doc['guide']['listening']), ('synthetic', []))
         self.assertTrue(doc['segments'][0]['fr'].startswith('La Banque'))
+        self.assertTrue(doc['guide']['dictation'])
         self.assertNotIn('guide', json.loads(Path(paths[manifest['variants'][0]['segmentsFile']]).read_text()))
+
+    def test_kokoro_produit_dictee_et_borne_fin_audio(self):
+        speech = mock.Mock(provider='kokoro')
+        def generer(*args, **kwargs):
+            return {**voix(*args, **kwargs), 'origin': 'kokoro', 'timingSource': 'kokoro'}
+        speech.generate.side_effect = generer
+        speech.kokoro_speeds.return_value = {'af_bella': 1.0, 'bm_george': 1.0}
+        client = FauxClient({'guide-en': lambda p: traductions(p, lambda i: f'The Bank of England is expected to hold interest rates steady, part {int(i[1:])}.'),
+                             'guide-notes': {'expressions': NOTES['expressions'], 'listening': []},
+                             'quiz': {'questions': QUESTIONS}})
+        manifest, paths = self.publier(video(12), client, 'fr', **{'discover_speech.Session': mock.Mock(return_value=speech)})
+        anglais = manifest['variants'][1]
+        doc = json.loads(Path(paths[anglais['segmentsFile']]).read_text())
+        self.assertEqual(anglais['audio']['origin'], 'kokoro')
+        self.assertTrue(doc['guide']['dictation'])
+    def test_dictee_bornee_a_la_fin_reelle_de_l_audio(self):
+        from discover_podcast_bundle import construire
+        segments = video(2)
+        segments[-1]['endMs'] = 363000
+        self.segments.write_text(json.dumps({'language': 'en', 'timingSource': 'rss_vtt', 'segments': segments}))
+        donnees = {'target': 'source', 'guide': {'level': 'B1', 'voice': 'original',
+                   'passage': {'fromSegment': 's0000', 'toSegment': 's0001'}, 'expressions': [{'segmentId': 's0000', 'text': 'Bank', 'note': 'Banque'}], 'listening': [],
+                   'dictation': [{'id': 'd001', 'segmentId': 's0001', 'text': segments[-1]['text'],
+                                  'startMs': 30000, 'endMs': 363000}]}}
+        with mock.patch('pipeline.duree_audio_secondes', return_value=360):
+            manifest, paths = construire(self.item, {'segmentsFile': str(self.segments), 'audioFile': str(self.audio)},
+                                         None, None, self.root / 'borne', guide=donnees)
+        doc = json.loads(Path(paths[manifest['variants'][0]['segmentsFile']]).read_text())
+        self.assertEqual(doc['guide']['dictation'][-1]['endMs'], 360000)
 
     def test_texte_anglais_lu_tel_quel_par_une_voix(self):
         note = '3f1d9c6e-8b2a-4c7d-9e10-2a3b4c5d6e7f'
