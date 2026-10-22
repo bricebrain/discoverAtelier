@@ -1,0 +1,7 @@
+{
+  "clusters/42/": {"case_name": "Example v Example", "date_filed": "2024-01-11", "docket": "https://www.courtlistener.com/api/rest/v4/dockets/7/", "citations": [{"volume": 123, "reporter": "U.S.", "page": "456"}], "sub_opinions": ["https://www.courtlistener.com/api/rest/v4/opinions/8/", "https://www.courtlistener.com/api/rest/v4/opinions/9/"]},
+  "dockets/7/": {"court": "https://www.courtlistener.com/api/rest/v4/courts/scotus/"},
+  "courts/scotus/": {"full_name": "Supreme Court of the United States"},
+  "opinions/8/": {"html_with_citations": "<p>The buyer <b>appealed</b>.<sup><a href='#fn1'>1</a></sup> The seller disagreed.</p><div class='footnotes'><p id='fn1'>FOOTNOTE TO REMOVE <em>nested</em>.</p></div><p>The appeal was allowed &amp; remitted.</p><script>BAD</script>", "plain_text": "Less reliable text"},
+  "opinions/9/": {"html_with_citations": "<p>Dissent: the appeal should be dismissed.</p>"}
+}

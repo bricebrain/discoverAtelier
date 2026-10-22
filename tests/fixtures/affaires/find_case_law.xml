@@ -1,0 +1,61 @@
+<?xml version='1.0' encoding='utf-8'?>
+<ns0:akomaNtoso xmlns:ns0="http://docs.oasis-open.org/legaldocml/ns/akn/3.0" xmlns:ns1="https://caselaw.nationalarchives.gov.uk/akn">
+  <ns0:judgment name="judgment">
+    <ns0:meta>
+      <ns0:identification source="#tna">
+        <ns0:FRBRWork>
+          <ns0:FRBRthis value="https://caselaw.nationalarchives.gov.uk/id/uksc/2024/1" />
+          <ns0:FRBRuri value="https://caselaw.nationalarchives.gov.uk/id/uksc/2024/1" />
+          <ns0:FRBRdate date="2024-01-11" name="judgment" />
+          <ns0:FRBRauthor href="#uksc" />
+          <ns0:FRBRcountry value="GB-UKM" />
+          <ns0:FRBRnumber value="1" />
+          <ns0:FRBRname value="Paul and another v Royal Wolverhampton NHS Trust" />
+        </ns0:FRBRWork>
+        <ns0:FRBRExpression>
+          <ns0:FRBRthis value="https://caselaw.nationalarchives.gov.uk/uksc/2024/1" />
+          <ns0:FRBRuri value="https://caselaw.nationalarchives.gov.uk/uksc/2024/1" />
+          <ns0:FRBRdate date="2024-01-11" name="judgment" />
+          <ns0:FRBRauthor href="#uksc" />
+          <ns0:FRBRlanguage language="eng" />
+        </ns0:FRBRExpression>
+        <ns0:FRBRManifestation>
+          <ns0:FRBRthis value="https://caselaw.nationalarchives.gov.uk/uksc/2024/1/data.xml" />
+          <ns0:FRBRuri value="https://caselaw.nationalarchives.gov.uk/uksc/2024/1/data.xml" />
+          <ns0:FRBRdate date="2024-11-10T04:15:51" name="transform" />
+          <ns0:FRBRdate date="2024-11-17T19:49:46" name="tna-enriched" />
+          <ns0:FRBRauthor href="#tna" />
+          <ns0:FRBRformat value="application/xml" />
+        </ns0:FRBRManifestation>
+      </ns0:identification>
+      <ns0:references source="#tna">
+        <ns0:TLCOrganization eId="uksc" href="https://www.supremecourt.uk/" showAs="The Supreme Court" />
+        <ns0:TLCOrganization eId="tna" href="https://www.nationalarchives.gov.uk/" showAs="The National Archives" />
+        <ns0:TLCEvent eId="judgment" href="#" showAs="judgment" />
+        <ns0:TLCPerson eId="paul-and-another" href="" showAs="Paul and another" />
+        <ns0:TLCPerson eId="royal-wolverhampton-nhs-trust" href="" showAs="Royal Wolverhampton NHS Trust" />
+        <ns0:TLCRole eId="appellant" href="" showAs="Appellant" />
+        <ns0:TLCRole eId="respondent" href="" showAs="Respondent" />
+        <ns0:TLCPerson eId="judge-lord-briggs" href="/judge-lord-briggs" showAs="Lord Briggs" />
+        <ns0:TLCPerson eId="judge-lord-sales" href="/judge-lord-sales" showAs="Lord Sales" />
+        <ns0:TLCPerson eId="judge-lord-leggatt" href="/judge-lord-leggatt" showAs="Lord Leggatt" />
+        <ns0:TLCPerson eId="judge-lord-burrows" href="/judge-lord-burrows" showAs="Lord Burrows" />
+        <ns0:TLCPerson eId="judge-lady-rose" href="/judge-lady-rose" showAs="Lady Rose" />
+        <ns0:TLCPerson eId="judge-lord-richards" href="/judge-lord-richards" showAs="Lord Richards" />
+      </ns0:references>
+      <ns0:proprietary source="#">
+        <ns1:court>UKSC</ns1:court>
+        <ns1:year>2024</ns1:year>
+        <ns1:number>1</ns1:number>
+        <ns1:cite>[2024] UKSC 1</ns1:cite>
+        <ns1:parser>0.26.10</ns1:parser>
+        <ns1:hash>1e273f2cd657e3fe64e5730f7bf38f44d7c61f453689f7999c2fa5ff72bfa27c</ns1:hash>
+        <ns1:tna-enrichment-engine>6.0.2</ns1:tna-enrichment-engine>
+      </ns0:proprietary>
+    </ns0:meta>
+    <ns0:judgmentBody>
+      <ns0:p>The court considers <ns0:b>the appeal</ns0:b>
+        <ns0:authorialNote>FOOTNOTE TO REMOVE</ns0:authorialNote> on the evidence.<ns0:noteRef href="#n1" /> The parties disagree.</ns0:p>
+    </ns0:judgmentBody>
+  </ns0:judgment>
+</ns0:akomaNtoso>
