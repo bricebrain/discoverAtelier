@@ -198,7 +198,13 @@ class FileDiscover:
                     body = {'owner': self.owner, 'sourceOnly': self.source_only}
                     if action_id:
                         body.update(itemId=action_id, includeReview=True)
-                    self.item = self._appel('/lease', body)['item']
+                    try:
+                        self.item = self._appel('/lease', body)['item']
+                    except Exception:
+                        self.message = 'Connexion Discover indisponible. Nouvel essai dans 30 secondes.'
+                        if self.stop.wait(30):
+                            break
+                        continue
                     if action_path and not self.item:
                         action_path.unlink(missing_ok=True)
                     self.etape = 'download'

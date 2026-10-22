@@ -13,7 +13,7 @@ class RepriseTests(unittest.TestCase):
             worker.owner = 'mac'
             premier = {'id': 'premier', 'leaseToken': 'ancien'}
             second = {'id': 'second', 'leaseToken': 'nouveau'}
-            worker._appel = mock.Mock(side_effect=[{'item': premier}, {'item': second}])
+            worker._appel = mock.Mock(side_effect=[{'item': premier}, OSError('réseau'), {'item': second}])
 
             def traiter():
                 if worker.item is premier:
@@ -30,8 +30,9 @@ class RepriseTests(unittest.TestCase):
             self.assertEqual(worker._appel.call_args_list, [
                 mock.call('/lease', {'owner': 'mac', 'sourceOnly': False}),
                 mock.call('/lease', {'owner': 'mac', 'sourceOnly': False}),
+                mock.call('/lease', {'owner': 'mac', 'sourceOnly': False}),
             ])
-            attente.assert_called_once_with(30)
+            self.assertEqual(attente.call_args_list, [mock.call(30), mock.call(30)])
             self.assertFalse(worker.perdu.is_set())
 
     def test_arret_demande_libere_le_bail_sans_reprendre(self):
