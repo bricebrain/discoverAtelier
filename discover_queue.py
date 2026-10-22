@@ -147,16 +147,9 @@ class FileDiscover:
             motif = {'youtube': r'[A-Za-z0-9_-]{11}',
                      'reflection': r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}',
                      'dossier': r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'}.get(kind)
-            if kind == 'affaire':
-                from discover_affaire import normaliser_url_affaire
-                normaliser_url_affaire(self.item['ref'])
-            elif not motif or not re.fullmatch(motif, self.item['ref']):
+            if not motif or not re.fullmatch(motif, self.item['ref']):
                 raise ValueError('Identifiant source invalide.')
-            reference_locale = self.item['ref']
-            if kind == 'affaire':
-                from discover_ai import empreinte
-                reference_locale = empreinte(self.item['ref'])[:20]
-            dossier = self.dossier / f'{kind}-{reference_locale}'
+            dossier = self.dossier / f'{kind}-{self.item["ref"]}'
             resultat = self.preparer(self.item, dossier, self._etape, self.verifier)
             # Le titre et la langue d'une vidéo ou d'un texte ne sont connus qu'après la préparation de la source.
             if isinstance(resultat, dict) and resultat.get('source'):

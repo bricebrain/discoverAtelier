@@ -533,12 +533,6 @@ $('form-youtube').addEventListener('submit', (e) => {
   e.preventDefault();
   void submitImport($('form-youtube'), { kind: 'youtube', url: $('yt-url').value.trim(), options: ytOptions.value() }, () => { $('yt-url').value = ''; });
 });
-$('form-affaire').addEventListener('submit', (e) => {
-  e.preventDefault();
-  void submitImport($('form-affaire'), { kind: 'affaire', url: $('affaire-url').value.trim(),
-    options: { coverage: 'guided', level: $('affaire-level').value, style: 'narration', targetMinutes: null, faithful: false, keepOriginalCopy: false } },
-    () => { $('affaire-url').value = ''; });
-});
 $('form-text').addEventListener('submit', (e) => {
   e.preventDefault();
   void submitImport($('form-text'), { kind: 'text', title: $('tx-title').value.trim(), text: $('tx-text').value, options: txOptions.value() },

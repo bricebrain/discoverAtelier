@@ -49,7 +49,7 @@ def preparer_guide(item, source, root, folder, etape, verifier, config, client):
     else:
         if langue == 'en':  # texte anglais : lu tel quel, traduction française à la demande
             francais = discover_guide.traduire_vers_francais(client, sources, etape)
-            anglais = [{'id': s['id'], 'text': s['text'], 'fr': francais[s['id']], 'speaker': s.get('speaker', 'Narrator') if item['source'].get('kind') == 'affaire' else 'Narrator',
+            anglais = [{'id': s['id'], 'text': s['text'], 'fr': francais[s['id']], 'speaker': 'Narrator',
                         'sourceSegments': [s['id']]} for s in sources]
             cible = 'adaptation'
         else:
@@ -84,7 +84,7 @@ def preparer_guide(item, source, root, folder, etape, verifier, config, client):
         if e.status != 404:
             raise
         previous = None
-    extras = {'target': cible, 'guide': guide, 'quiz': quiz, 'fr': francais if cible == 'source' else None, 'judgment': source.get('judgment')}
+    extras = {'target': cible, 'guide': guide, 'quiz': quiz, 'fr': francais if cible == 'source' else None}
     if cible == 'adaptation':
         # Texte anglais lu tel quel : publié comme version « intégrale non simplifiée » de la source écrite.
         lu = {**item, 'options': {**item['options'], 'coverage': 'full', 'level': 'original', 'style': 'narration', 'targetMinutes': None}}
@@ -106,9 +106,6 @@ def preparer(item, source, root, etape, verifier, config, client=None):
     folder = root / ('prepared-' + empreinte(item['options'])[:16])
     folder.mkdir(parents=True, exist_ok=True)
     client = client or Client(root / 'gemini-cache', verifier)
-    if item['source'].get('kind') == 'affaire':
-        import discover_affaire_preparation
-        return discover_affaire_preparation.preparer(item, source, root, folder, etape, verifier, config, client)
     if item['options'].get('coverage') == 'guided':
         return preparer_guide(item, source, root, folder, etape, verifier, config, client)
     # Les phrases d'origine ne servent qu'à la dictée du guide : jamais envoyées au modèle.

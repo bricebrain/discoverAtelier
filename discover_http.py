@@ -146,10 +146,10 @@ def traiter(handler, methode, path, donnees=None):
             # Lien YouTube ou texte importé : la demande rejoint la même file que les épisodes.
             kind = donnees.get('kind')
             options = donnees.get('options') or {}
-            if kind not in ('youtube', 'text', 'affaire') or not isinstance(options, dict):
+            if kind not in ('youtube', 'text') or not isinstance(options, dict):
                 raise ValueError('Import invalide.')
             corps = {'kind': kind, 'options': options}
-            if kind in ('youtube', 'affaire'):
+            if kind == 'youtube':
                 corps['url'] = str(donnees.get('url', ''))[:500]
             else:
                 corps['title'] = str(donnees.get('title', ''))[:200]
