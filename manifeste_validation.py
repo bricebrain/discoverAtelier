@@ -182,7 +182,29 @@ def valider_segments(doc, variant, source_ids=None):
             refuser('invalid_guide')
         if guide['voice'] == 'synthetic' and guide['listening']:
             refuser('invalid_guide')
+        valider_dictee(guide.get('dictation') or [], segments, debut, fin)
     return doc
+
+
+DICTEE_MOTS_MAX = 25
+
+
+def valider_dictee(unites, segments, debut, fin):
+    """Dictée : unités du passage, de 25 mots au plus, contenues dans leur segment et horodatées à l'intérieur, dans l'ordre."""
+    index = {s['id']: i for i, s in enumerate(segments)}
+    if len({u['id'] for u in unites}) != len(unites):
+        refuser('invalid_guide')
+    dernier = -1
+    for u in unites:
+        i = index.get(u['segmentId'])
+        s = segments[i] if i is not None else None
+        mots = len(u['text'].split())
+        if s is None or not debut <= i <= fin or not mots or mots > DICTEE_MOTS_MAX \
+                or ' '.join(u['text'].split()) not in ' '.join(s['text'].split()):
+            refuser('invalid_guide')
+        if u['startMs'] < s['startMs'] or u['endMs'] > s['endMs'] or u['endMs'] <= u['startMs'] or u['startMs'] <= dernier:
+            refuser('invalid_guide')
+        dernier = u['startMs']
 
 
 def valider_provenance(doc, source_ids, variante_source):

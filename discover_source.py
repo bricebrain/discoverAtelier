@@ -244,7 +244,8 @@ def preparer_youtube(item, dossier, etape, verifier):
         raise RuntimeError('La transcription ne contient aucun segment lisible.')
     if not source['language']:
         source['language'] = detecter_langue(' '.join(c['text'] for c in cues))
-    segments = [{'id': f's{i:04d}', 'text': c['text'], 'startMs': c['startMs'], 'endMs': c['endMs']}
+    # Les phrases d'origine restent dans le fichier local (dictée phrase par phrase) ; jamais publiées telles quelles.
+    segments = [{'id': f's{i:04d}', 'text': c['text'], 'startMs': c['startMs'], 'endMs': c['endMs'], 'phrases': c['phrases']}
                 for i, c in enumerate(horodatage.regrouper_repliques(cues), 1)]
     pipeline.ecrire_json(str(segments_path), {'language': source['language'], 'timingSource': timing, 'segments': segments})
     precedent.update({'transcriptionKey': precedent['audioSha256'], 'segmentsSha256': empreinte(segments_path),

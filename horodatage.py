@@ -63,7 +63,8 @@ def lire_vtt_automatique(texte):
     les changements d'intervenant (« >> »). Les annotations entre crochets
     ([music]) sont retirées. Une phrase finit avec la cue de son dernier
     mot : les silences et musiques ne restent pas surlignés.
-    Renvoie [{"startMs", "endMs", "text"}]."""
+    Renvoie [{"startMs", "endMs", "text", "wordStarts"}] ; wordStarts donne
+    l'heure de chaque mot du texte (découpage fin de la dictée)."""
     mots = []
     lignes = html.unescape(texte or "").lstrip("﻿").replace("\r\n", "\n").split("\n")
     i = 0
@@ -91,7 +92,8 @@ def lire_vtt_automatique(texte):
     def clore():
         if courante:
             phrases.append({"startMs": courante[0][0], "endMs": courante[-1][2],
-                            "text": " ".join(m for _, m, _ in courante)})
+                            "text": " ".join(m for _, m, _ in courante),
+                            "wordStarts": [instant for instant, _, _ in courante]})
             courante.clear()
 
     entre_crochets = False
@@ -117,6 +119,7 @@ def lire_vtt_automatique(texte):
         if resultat and phrase["startMs"] <= resultat[-1]["startMs"]:
             resultat[-1]["text"] += " " + phrase["text"]
             resultat[-1]["endMs"] = phrase["endMs"]
+            resultat[-1]["wordStarts"] += phrase["wordStarts"]
         else:
             resultat.append(phrase)
     for courant, suivant in zip(resultat, resultat[1:]):
@@ -136,17 +139,19 @@ def regrouper_repliques(repliques, cible=SEGMENT_CIBLE):
     """Regroupe des répliques consécutives en segments d'environ `cible`
     caractères. Une réplique n'est jamais coupée ni déplacée ; une
     réplique plus longue que la cible forme un segment à elle seule.
-    Renvoie [{"text", "startMs", "endMs"}]."""
+    Renvoie [{"text", "startMs", "endMs", "phrases"}] : phrases garde les
+    répliques d'origine, pour la dictée phrase par phrase."""
     segments, courant = [], None
     for replique in repliques:
         if courant and len(courant["text"]) + 1 + len(replique["text"]) > cible:
             segments.append(courant)
             courant = None
         if courant is None:
-            courant = dict(replique)
+            courant = {**replique, "phrases": [dict(replique)]}
         else:
             courant["text"] = f"{courant['text']} {replique['text']}"
             courant["endMs"] = replique["endMs"]
+            courant["phrases"].append(dict(replique))
     if courant:
         segments.append(courant)
     return segments
