@@ -1,6 +1,7 @@
 import json
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 import discover_podcast_bundle as bundle
@@ -36,6 +37,26 @@ class PisteSousTitresTests(unittest.TestCase):
         info = {'automatic_captions': {'en': [], 'fr': []}}
         self.assertEqual(discover_source.piste_sous_titres(info, 'en'), ('en', True))
         self.assertEqual(discover_source.piste_sous_titres(info, None), (None, None))
+
+    def test_langue_d_origine_d_une_video_doublee(self):
+        # Vidéo française doublée en anglais par YouTube : deux pistes audio, une seule « original (default) ».
+        info = {'language': None, 'formats': [
+            {'acodec': 'opus', 'language': 'en-US', 'language_preference': -1},
+            {'acodec': 'opus', 'language': 'fr-FR', 'language_preference': 10},
+            {'acodec': 'none', 'language': None}]}
+        self.assertEqual(discover_source.langue_origine(info), 'fr')
+        self.assertEqual(discover_source.langue_origine({'language': 'en-US', 'formats': []}), 'en')
+        self.assertIsNone(discover_source.langue_origine({'language': 'de', 'formats': []}))
+
+    def test_pistes_departagees_par_la_langue_du_texte(self):
+        info = {'automatic_captions': {'en-orig': [], 'fr-orig': []}}
+        textes = {'en': 'WEBVTT\n\n00:00:00.000 --> 00:00:02.000\n \nle la les des est et une un que pour pas dans du\n',
+                  'fr': 'WEBVTT\n\n00:00:00.000 --> 00:00:02.000\n \nLa dette est un sujet que les économistes suivent de près.\n'}
+        def telecharger(url, base, cle, automatique):
+            chemin = Path(base + '.' + cle + '.vtt'); chemin.write_text(textes[cle[:2]]); return str(chemin)
+        with tempfile.TemporaryDirectory() as dossier, mock.patch('transcription.telecharger_sous_titres', side_effect=telecharger):
+            self.assertEqual(discover_source.departager_pistes(info, 'https://youtu.be/x', dossier), 'fr')
+            self.assertIsNone(discover_source.departager_pistes({'automatic_captions': {'fr-orig': []}}, 'u', dossier))
 
     def test_aucun_sous_titre(self):
         self.assertEqual(discover_source.piste_sous_titres({'subtitles': {'live_chat': []}}, 'en'), (None, None))

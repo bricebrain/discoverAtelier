@@ -135,7 +135,7 @@ class AudioTests(unittest.TestCase):
     def test_api_failure_falls_back_to_whole_kokoro_version(self):
         session = discover_speech.Session([self.script], self.root, self.config, self.root / 'prepared-error')
         with mock.patch.object(dg, 'assemble', side_effect=dg.DeepgramIndisponible('Service indisponible')), \
-             mock.patch.object(discover_audio, 'calibrer', return_value={'af_heart': .95}), \
+             mock.patch.object(discover_audio, 'vitesses', return_value={'af_heart': .95}), \
              mock.patch.object(discover_audio, 'executer', return_value={'durationMs': 1000}) as kokoro:
             result = session.generate(self.script, self.root, 'version', lambda: None)
         self.assertEqual(result['origin'], 'kokoro')

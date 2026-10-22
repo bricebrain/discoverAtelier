@@ -19,7 +19,7 @@ const STAGE_TEXT = {
   guide: 'Guide d’écoute (passage, expressions, quiz)', download: 'Téléchargement de l’audio', normalize: 'Préparation de l’audio', transcribe: 'Transcription (sous-titres de la vidéo, sinon MacWhisper)',
   source_ready: 'Source prête', plan: 'Plan de l’épisode (Gemini)', extract: 'Extraction des faits et arguments (Gemini)',
   adapt: 'Écriture de la version anglaise (Gemini)', translate: 'Traduction fidèle (Gemini)', evaluate: 'Contrôle de fidélité',
-  review: 'En attente de relecture (mode manuel)', tts: 'Création de l’audio anglais (Deepgram ou Heart)', publish: 'Publication dans Discover',
+  review: 'En attente de relecture (mode manuel)', tts: 'Création de l’audio anglais (Kokoro ou Deepgram)', publish: 'Publication dans Discover',
 };
 const COVERAGE = { guided: 'Original guidé', full: 'Intégral', condensed: 'Condensé', essentials: 'L’essentiel' };
 const KINDS = { youtube: 'YouTube', reflection: 'Texte · My Mind', dossier: 'Dossier multisource' };
@@ -365,7 +365,7 @@ function renderCosts(data) {
   $('costs-preparations').replaceChildren(...(data.preparations.length ? data.preparations.map((p) => {
     const row = el('p', '', 'small');
     const date = p.createdAt ? new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(p.createdAt)) : '';
-    const voix = p.ttsProvider === 'deepgram' ? `Deepgram ${VOIX_COUTS[p.voice] || p.voice}` : 'Heart (local)';
+    const voix = p.ttsProvider === 'deepgram' ? `Deepgram ${VOIX_COUTS[p.voice] || p.voice}` : 'Kokoro Bella / George (local)';
     const jetons = p.geminiTokens || p.openaiTokens ? ` · ${((p.geminiTokens + p.openaiTokens) / 1000).toLocaleString('fr-FR')} k jetons IA` : '';
     row.textContent = `${p.title || 'Préparation'} — ${date} · Gemini ${usd(p.geminiUsd)} · OpenAI ${usd(p.openaiUsd)} · Deepgram ${usd(p.deepgramUsd)} — total ${usd(p.totalUsd)}${jetons} · voix : ${voix}${p.fallbackReason ? ' · repli : ' + p.fallbackReason : ''}`;
     return row;

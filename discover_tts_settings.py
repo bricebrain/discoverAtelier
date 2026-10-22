@@ -21,7 +21,7 @@ def settings(config):
         if isinstance(number, bool) or not isinstance(number, (int, float)) or not math.isfinite(number) or not minimum <= number <= maximum:
             raise ValueError('Budget de 0 à 100 USD et débit de 0,7 à 1,5 attendus.')
     if not isinstance(value['fallback'], bool):
-        raise ValueError('Repli Heart : booléen attendu.')
+        raise ValueError('Repli Kokoro : booléen attendu.')
     value['speed'] = float(value['speed'])
     value['monthlyLimitUsd'] = float(value['monthlyLimitUsd'])
     return {key: value[key] for key in DEFAULTS}

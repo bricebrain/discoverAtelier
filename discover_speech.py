@@ -1,4 +1,4 @@
-"""Choix du moteur pour une préparation entière, coût avant audio et repli Heart sans double appel."""
+"""Choix du moteur pour une préparation entière, coût avant audio et repli Kokoro sans double appel."""
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -55,7 +55,7 @@ class Session:
 
     def kokoro_speeds(self, verifier):
         if self.speeds is None:
-            self.speeds = discover_audio.calibrer(self.root / '.kokoro', verifier)
+            self.speeds = discover_audio.vitesses()
         return self.speeds
 
     def generate(self, segments, folder, name, verifier, speeds=None):

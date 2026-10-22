@@ -46,7 +46,7 @@ class WorkflowTests(unittest.TestCase):
     def test_actual_duration_is_corrected_before_publication(self):
         with mock.patch.object(workflow.adaptation, 'generer', return_value=self.prepared), \
                 mock.patch.object(workflow.discover_vocabulary, 'charger', return_value=set()), \
-                mock.patch.object(workflow.discover_audio, 'calibrer', return_value={'bf_emma': .7}), \
+                mock.patch.object(workflow.discover_audio, 'vitesses', return_value={'bf_emma': .7}), \
                 mock.patch.object(workflow.discover_audio, 'executer', side_effect=[{'durationMs': 18*60_000}, {'durationMs': 12*60_000}]) as audio, \
                 mock.patch.object(workflow.discover_cible, 'requete', side_effect=discover_cible.ErreurDiscover(404, 'not_found')), \
                 mock.patch.object(workflow, 'construire', return_value=({}, {})), \

@@ -126,6 +126,31 @@ def _transcrire_macwhisper(audio, dossier, langue, verifier):
     return repliques(srt.read_text(encoding='utf-8-sig'))
 
 
+def langue_origine(info):
+    """Langue parlée dans la vidéo : la piste audio « original (default) » de YouTube (préférence 10),
+    sinon la langue déclarée. Une vidéo doublée automatiquement a d'autres pistes audio et leurs propres
+    sous-titres « -orig » : seule la langue d'origine compte."""
+    audios = [f for f in info.get('formats') or [] if f.get('acodec') not in (None, 'none') and f.get('language')]
+    originaux = [f['language'] for f in audios if (f.get('language_preference') or 0) >= 10]
+    langue = (originaux[0] if originaux else info.get('language') or '')[:2]
+    return langue if langue in ('fr', 'en') else None
+
+
+def departager_pistes(info, url, dossier):
+    """Langue inconnue et plusieurs pistes « -orig » : la bonne est celle dont le texte est dans sa propre langue."""
+    import transcription
+    candidates = [k for k in info.get('automatic_captions') or {} if k.endswith('-orig') and k[:2] in ('fr', 'en')]
+    if len(candidates) < 2:
+        return None
+    for cle in candidates:
+        chemin = transcription.telecharger_sous_titres(url, str(Path(dossier) / ('detection-' + cle[:2])), cle, True)
+        if chemin:
+            texte = ' '.join(c['text'] for c in horodatage.lire_vtt_automatique(Path(chemin).read_text(encoding='utf-8-sig'))[:40])
+            if texte and detecter_langue(texte) == cle[:2]:
+                return cle[:2]
+    return None
+
+
 def piste_sous_titres(info, langue):
     """Piste YouTube à utiliser : (clé, automatique) ou (None, None).
 
@@ -164,8 +189,7 @@ def preparer_youtube(item, dossier, etape, verifier):
     if info.get('live_status') in ETATS_DIRECT or info.get('is_live') or info.get('was_live'):
         raise SourceRefusee(DIRECTS_REFUSES)
     source['title'] = (info.get('title') or source['title'])[:300]
-    langue = (info.get('language') or '')[:2]
-    source['language'] = langue if langue in ('fr', 'en') else None
+    source['language'] = langue_origine(info)
     original = dossier / 'download.mp3'
     if not (original.is_file() and precedent.get('videoId') == source['videoId'] and precedent.get('downloadSha256') == empreinte(original)):
         options = {'format': 'bestaudio/best', 'noplaylist': True, 'outtmpl': str(dossier / 'download.%(ext)s'),
@@ -199,6 +223,8 @@ def preparer_youtube(item, dossier, etape, verifier):
     cues, timing = None, 'macwhisper_srt'
     # Sous-titres YouTube (manuels, sinon automatiques d'origine) ; MacWhisper seulement s'il n'y en a aucun.
     try:
+        if not source['language']:
+            source['language'] = departager_pistes(info, source['url'], dossier)
         cle, automatique = piste_sous_titres(info, source['language'])
         if cle:
             chemin = transcription.telecharger_sous_titres(source['url'], str(dossier / 'subtitles'), cle, automatique)

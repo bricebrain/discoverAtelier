@@ -26,12 +26,12 @@ function render(data, fill) {
   }
   controls();
   $('tts-usage').textContent = `${data.budget.month} : ${money(data.budget.engagedUsd)} engagés / ${money(data.settings.monthlyLimitUsd)} · ${money(data.budget.remainingUsd)} disponibles.`;
-  $('tts-key').textContent = data.keyConfigured ? 'Clé Deepgram configurée sur ce Mac.' : 'Clé Deepgram absente : les préparations utilisent Heart si le secours est activé.';
+  $('tts-key').textContent = data.keyConfigured ? 'Clé Deepgram configurée sur ce Mac.' : 'Clé Deepgram absente : les préparations utilisent Kokoro si le secours est activé.';
   $('tts-uncertain').textContent = data.budget.uncertainRequests
     ? `${data.budget.uncertainRequests} appel(s) sans résultat certain : leur coût reste réservé, sans relance payante automatique.` : '';
   $('tts-plans').replaceChildren(...data.preparations.map((plan) => {
     const row = document.createElement('p'); row.className = 'small';
-    row.textContent = `${plan.title || 'Préparation'} — ${plan.provider === 'deepgram' ? 'Deepgram' : 'Heart'} · estimation Deepgram : ${money(plan.estimatedUsd)} pour ${plan.newCharacters.toLocaleString('fr-FR')} nouveaux caractères${plan.fallbackReason ? ' · ' + plan.fallbackReason : ''}`;
+    row.textContent = `${plan.title || 'Préparation'} — ${plan.provider === 'deepgram' ? 'Deepgram' : 'Kokoro'} · estimation Deepgram : ${money(plan.estimatedUsd)} pour ${plan.newCharacters.toLocaleString('fr-FR')} nouveaux caractères${plan.fallbackReason ? ' · ' + plan.fallbackReason : ''}`;
     return row;
   }));
 }

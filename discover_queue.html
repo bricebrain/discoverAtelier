@@ -148,12 +148,12 @@
     <summary style="cursor:pointer;font-weight:650">Voix et budget audio</summary>
     <form id="tts-form" style="display:grid;gap:12px;margin-top:14px">
       <div class="row">
-        <label>Moteur <select id="tts-provider"><option value="deepgram">Deepgram Aura-2</option><option value="kokoro">Kokoro Heart · local gratuit</option></select></label>
+        <label>Moteur <select id="tts-provider"><option value="deepgram">Deepgram Aura-2</option><option value="kokoro">Kokoro · Bella et George · local gratuit</option></select></label>
         <label>Voix Deepgram <select id="tts-voice"><option value="cora">Cora · américain</option><option value="vesta">Vesta · américain</option><option value="draco">Draco · britannique</option></select></label>
         <label>Débit Deepgram <input id="tts-speed" type="number" min="0.7" max="1.5" step="0.05" style="width:80px"></label>
         <label>Plafond mensuel ($) <input id="tts-budget" type="number" min="0" max="100" step="0.5" style="width:90px"></label>
       </div>
-      <label><input id="tts-fallback" type="checkbox"> Utiliser Heart si le budget est insuffisant ou Deepgram indisponible</label>
+      <label><input id="tts-fallback" type="checkbox"> Utiliser Kokoro si le budget est insuffisant ou Deepgram indisponible</label>
       <p class="small muted">Aura-2 : 0,03 $ / 1 000 caractères. En dialogue Deepgram, l’invité utilise Draco (Cora si la voix principale est Draco). Aucun changement ne régénère la bibliothèque.</p>
       <div id="tts-key" class="small muted"></div>
       <div id="tts-usage" class="small" aria-live="polite"></div>
