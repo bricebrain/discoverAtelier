@@ -104,12 +104,18 @@ def choisir_passage(client, segments, niveau):
     schema = objet({'fromSegment': TEXT, 'toSegment': TEXT, 'reason': TEXT})
     consigne = ('Choose ONE continuous passage of 120 to 300 seconds that is the best listening practice for this learner: '
                 'meaningful on its own, rich in useful expressions, not an intro, outro, ad or list of headlines. '
-                + EXPLICATIONS[niveau] + ' Give fromSegment and toSegment ids and a one-sentence reason in French. ' + REGLES
+                + EXPLICATIONS[niveau] + ' Give fromSegment and toSegment ids and a one-sentence reason in French. '
+                'Décris le sujet du passage et pourquoi il convient à cet apprenant, sans citer de mot ni d’expression en anglais. '
+                'N’utilise aucun guillemet ni mot entre apostrophes. ' + REGLES
                 + donnees({'segments': [{'id': s['id'], 'startSec': round(s['startMs'] / 1000), 'endSec': round(s['endMs'] / 1000),
                                          'text': s['text']} for s in segments]}))
+    def valider(o):
+        valider_passage(segments, o['fromSegment'], o['toSegment'])
+        if re.search(r"""["«»“”„]|(?<!\w)['‘’][^\n]+?['‘’](?!\w)""", o['reason']):
+            raise ValueError('La raison doit décrire le sujet et son intérêt sans citer de mot ni d’expression.')
+
     try:
-        choix = client.demander('guide-passage', consigne, schema,
-                                lambda o: valider_passage(segments, o['fromSegment'], o['toSegment']))
+        choix = client.demander('guide-passage', consigne, schema, valider)
         return {'fromSegment': choix['fromSegment'], 'toSegment': choix['toSegment'], 'reason': choix['reason'][:500]}
     except (ValueError, FournisseurIndisponible):
         depart, arrivee = passage_par_defaut(segments)

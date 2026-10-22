@@ -77,6 +77,18 @@ class PassageTests(unittest.TestCase):
         self.assertEqual(guide.choisir_passage(client, segments, 'B1'),
                          {'fromSegment': 's0010', 'toSegment': 's0017', 'reason': 'Explique la décision.'})
 
+    def test_raison_sans_citation_mais_avec_apostrophe_francaise(self):
+        for raison in ('Comprendre « hold rates ».', 'Comprendre "hold rates".',
+                       "Comprendre 'rates'.", "Comprendre 'don't'.", 'Comprendre ‘rates’.', 'Comprendre ’rates’.',
+                       "Le sujet convient à l'apprenant.", 'Le sujet convient à l’apprenant.'):
+            with self.subTest(raison=raison):
+                client = FauxClient({'guide-passage': {'fromSegment': 's0010', 'toSegment': 's0017', 'reason': raison}})
+                passage = guide.choisir_passage(client, video(40), 'B1')
+                if raison.startswith('Comprendre'):
+                    self.assertEqual(passage['reason'], 'Passage choisi automatiquement (environ 4 minutes).')
+                else:
+                    self.assertEqual(passage['reason'], raison)
+
     def test_passage_trop_long_ou_ia_indisponible_remplace_par_4_minutes(self):
         segments = video(40)
         for reponse in ({'fromSegment': 's0001', 'toSegment': 's0030', 'reason': 'Tout.'}, FournisseurIndisponible('quota')):
