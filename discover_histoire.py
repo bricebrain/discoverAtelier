@@ -110,7 +110,11 @@ def _auditer(client, histoire, affaire, niveau):
         'Set no_invented_facts=false for any unsupported detail even if omitted from facts_check. '
         'Return all checks and an explanatory reason.\n'
         + donnees({'judgment': affaire, 'level': niveau, 'histoire': histoire}))
-    rapport = client.demander('histoire-audit', prompt, AUDIT, juge=True)
+    schema = copy.deepcopy(AUDIT)
+    nombre = len(histoire['facts_check'])
+    schema['properties']['checks'].update(minItems=nombre, maxItems=nombre)
+    prompt += f'\nReturn exactly {nombre} checks, one for EVERY fact_index from 0 to {nombre - 1}. Do not omit or duplicate an index.'
+    rapport = client.demander('histoire-audit', prompt, schema, juge=True)
     try:
         jsonschema.validate(rapport, AUDIT)
     except jsonschema.ValidationError:
