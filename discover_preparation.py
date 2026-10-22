@@ -7,6 +7,7 @@ from discover_citations import nettoyer_segments
 import discover_audio
 import discover_speech
 import discover_cible
+import discover_dictee
 import discover_guide
 import discover_source
 import discover_englishfluency
@@ -69,6 +70,10 @@ def preparer_guide(item, source, root, folder, etape, verifier, config, client):
     etape('guide')
     passage = discover_guide.choisir_passage(client, segments_guide, niveau)
     guide, quiz = discover_guide.generer_guide(client, segments_guide, passage, niveau, voix, config)
+    debut, fin = discover_guide.valider_passage(segments_guide, passage['fromSegment'], passage['toSegment'])
+    dictee = discover_dictee.unites(segments_guide[debut:fin + 1])
+    if dictee:
+        guide['dictation'] = dictee
     pipeline.ecrire_json(str(folder / 'guide.json'), {'guide': guide, 'quiz': quiz, 'generation': client.statistiques()})
     verifier()
     etape('publish')
@@ -103,7 +108,8 @@ def preparer(item, source, root, etape, verifier, config, client=None):
     client = client or Client(root / 'gemini-cache', verifier)
     if item['options'].get('coverage') == 'guided':
         return preparer_guide(item, source, root, folder, etape, verifier, config, client)
-    sources = json.loads(Path(source['segmentsFile']).read_text())['segments']
+    # Les phrases d'origine ne servent qu'à la dictée du guide : jamais envoyées au modèle.
+    sources = [{k: v for k, v in s.items() if k != 'phrases'} for s in json.loads(Path(source['segmentsFile']).read_text())['segments']]
     # Dossier : le modèle voit chaque passage avec le titre de sa source, sans la provenance (réservée au manifeste).
     dossier = item['source'].get('kind') == 'dossier'
     if dossier:

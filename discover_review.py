@@ -27,7 +27,8 @@ def exiger(item, prepared, source, folder, automatique=True):
     folder = Path(folder)
     review = {'id': item['id'], 'title': item['source']['title'], 'options': item['options'],
               'signature': signature(item, prepared, source), 'prepared': prepared,
-              'sources': json.loads(Path(source['segmentsFile']).read_text())['segments']}
+              'sources': [{k: v for k, v in s.items() if k != 'phrases'}
+                          for s in json.loads(Path(source['segmentsFile']).read_text())['segments']]}
     pipeline.ecrire_json(str(folder / 'review.json'), review)
     if automatique:
         # Le rapport reste consultable dans l'Atelier ; Discover affiche la version « non relue ».

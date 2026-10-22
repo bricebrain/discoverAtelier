@@ -68,7 +68,18 @@ def construire(item, source, prepared, audio, folder, faithful=None, faithful_au
         if key_vocab:
             doc['keyVocab'] = key_vocab
         if guide and guide['target'] == target:
-            doc['guide'] = guide['guide']
+            doc['guide'] = dict(guide['guide'])
+            if doc['guide'].get('dictation'):
+                # Bornes publiées (fin des sous-titres ramenée à l'audio) : une unité ne déborde jamais de son segment.
+                bornes = {s['id']: (s.get('startMs'), s.get('endMs')) for s in segments}
+                dictee = []
+                for u in doc['guide']['dictation']:
+                    debut, fin = bornes.get(u['segmentId'], (None, None))
+                    if debut is not None and fin is not None and max(u['startMs'], debut) < min(u['endMs'], fin):
+                        dictee.append({**u, 'startMs': max(u['startMs'], debut), 'endMs': min(u['endMs'], fin)})
+                doc['guide']['dictation'] = dictee
+                if not dictee:
+                    del doc['guide']['dictation']
             if guide.get('quiz'):
                 try:
                     variant['quiz'] = discover_quiz.valider(guide['quiz'], len(segments))
