@@ -149,7 +149,7 @@ function optionsEditor({ faithfulAllowed = false } = {}) {
   };
   const render = () => {
     box.replaceChildren();
-    box.append(seg('Formule', ['guided', 'full', 'condensed', 'essentials'], 'coverage', COVERAGE));
+    box.append(seg('Formule', ['guided', 'essentials'], 'coverage', { guided: COVERAGE.guided, essentials: 'L’essentiel · 4 min (Découvrir)' }));
     const guided = opts.coverage === 'guided';
     box.append(seg(guided ? 'Explications' : 'Niveau', guided ? LEVELS.filter((l) => l !== 'original') : LEVELS, 'level', { A2: 'A2', B1: 'B1', B2: 'B2', C1: 'C1', original: 'Non simplifié' }));
     const row = el('div', null, 'row');
@@ -293,7 +293,6 @@ async function loadEpisodes(append = false) {
 
 // ── Préparation automatique par émission ─────────────────────────────────────
 let autoShows = [];
-const PRESETS = { essentials4: 'L’essentiel · 4 min', condensed8: 'Condensé · 8 min' };
 function renderAuto(enabled) {
   $('auto-enabled').checked = enabled;
   const channels = autoShows.filter((s) => s.enabled);
@@ -305,21 +304,25 @@ function renderAuto(enabled) {
     const row = el('div', null, 'auto-row');
     const box = Object.assign(el('input'), { type: 'checkbox', checked: s.autoPrepare, disabled: !enabled });
     box.setAttribute('aria-label', 'Préparer automatiquement ' + s.title);
-    const preset = el('select');
-    preset.append(...Object.entries(PRESETS).map(([v, l]) => Object.assign(el('option', l), { value: v, selected: v === s.autoPreset })));
+    const formule = el('span', 'Original guidé');
     const level = el('select');
-    level.append(...LEVELS.map((v) => Object.assign(el('option', v === 'original' ? 'non simplifié' : v), { value: v, selected: v === s.autoLevel })));
-    preset.disabled = level.disabled = !enabled || !s.autoPrepare;
+    level.setAttribute('aria-label', 'Niveau des explications');
+    level.append(...LEVELS.filter((v) => v !== 'original').map((v) => Object.assign(el('option', v), {
+      value: v, selected: v === (s.autoLevel === 'original' ? 'C1' : s.autoLevel),
+    })));
+    level.disabled = !enabled || !s.autoPrepare;
     const save = async () => {
       row.querySelectorAll('input,select').forEach((n) => { n.disabled = true; });
       try {
-        const { show } = await api('show-auto', { id: s.id, autoPrepare: box.checked, autoPreset: preset.value, autoLevel: level.value });
+        const { show } = await api('show-auto', { id: s.id, autoPrepare: box.checked, autoLevel: level.value });
         Object.assign(s, show);
       } catch (error) { banner('error', 'Réglage non enregistré', error.message); }
       renderAuto($('auto-enabled').checked);
     };
-    box.onchange = save; preset.onchange = save; level.onchange = save;
-    row.append(box, el('span', s.title), preset, level);
+    box.onchange = save; level.onchange = save;
+    const niveau = el('label', 'Niveau des explications ');
+    niveau.append(level);
+    row.append(box, el('span', s.title), formule, niveau);
     return row;
   }));
 }
