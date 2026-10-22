@@ -20,6 +20,8 @@ def content_id(item):
     if kind == 'youtube':
         # Les identifiants YouTube ont des majuscules : le manifeste n'accepte que des minuscules.
         return 'youtube-' + fingerprint(item['ref'])[:20]
+    if kind == 'affaire':
+        return 'affaire-' + fingerprint(item['ref'])[:20]
     if kind == 'reflection':
         return 'reflection-' + item['ref']
     if kind == 'dossier':
@@ -69,6 +71,8 @@ def construire(item, source, prepared, audio, folder, faithful=None, faithful_au
             doc['keyVocab'] = key_vocab
         if guide and guide['target'] == target:
             doc['guide'] = dict(guide['guide'])
+            if guide.get('judgment'):
+                variant['judgment'] = guide['judgment']
             if doc['guide'].get('dictation'):
                 # Bornes publiées (fin des sous-titres ramenée à l'audio) : une unité ne déborde jamais de son segment.
                 bornes = {s['id']: (s.get('startMs'), s.get('endMs')) for s in segments}
@@ -106,7 +110,7 @@ def construire(item, source, prepared, audio, folder, faithful=None, faithful_au
             timed = False
             break
         last_start, last_end = a, b
-    if kind in ('reflection', 'dossier'):
+    if kind in ('reflection', 'dossier', 'affaire'):
         original_audio = None
         timed = False
     else:
@@ -170,6 +174,9 @@ def construire(item, source, prepared, audio, folder, faithful=None, faithful_au
                'category': category, 'editorial': 'news' if kind == 'youtube' and category in CATEGORIES_ACTUALITE else 'discovery'}
     if kind == 'youtube':
         content.update(sourceType='youtube', sourceRef='youtube:' + item['ref'], sourceUrl=item['source']['url'])
+    elif kind == 'affaire':
+        content.update(sourceType='affaire', sourceRef='affaire:' + item['ref'], sourceUrl=item['source']['url'],
+                       licence=item['source']['licence'])
     elif kind == 'reflection':
         content.update(sourceType='reflection', sourceRef='reflection:' + item['ref'], sourceUrl=None)
     elif kind == 'dossier':

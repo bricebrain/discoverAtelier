@@ -81,6 +81,15 @@ def valider_manifeste(m, context=None):
             or (c['sourceType'] == 'dossier' and (not re.fullmatch(r'dossier:[0-9a-f-]{36}', ref) or c['id'] != 'dossier-' + ref[8:]
                                                   or not c.get('sources')))):
         refuser('invalid_source_ref')
+    if c['sourceType'] == 'affaire':
+        from discover_affaire import normaliser_url_affaire
+        try:
+            url = normaliser_url_affaire(c.get('sourceUrl'))
+        except RuntimeError:
+            refuser('invalid_judgment')
+        if (url != c.get('sourceUrl') or ref != 'affaire:' + url or not c.get('licence', '').strip()
+                or source.get('audio') or not any(v.get('judgment') for v in variants)):
+            refuser('invalid_judgment')
     # Dossier : sources d1…dN dans l'ordre, sans audio source ni flux éditeur ; ailleurs, aucune source multiple.
     if c['sourceType'] == 'dossier':
         if ([x['id'] for x in c['sources']] != [f'd{i}' for i in range(1, len(c['sources']) + 1)]
@@ -92,6 +101,13 @@ def valider_manifeste(m, context=None):
         refuser('publication_too_large')
     used = set()
     for v in variants:
+        jugement = v.get('judgment')
+        if jugement and (c['sourceType'] != 'affaire' or v['kind'] != 'adaptation' or v['language'].split('-')[0] != 'en'
+                         or not jugement['question'].strip() or not jugement['verdictExplanationFr'].strip()
+                         or jugement['verdict'] >= len(jugement['choices'])
+                         or any(not x.strip() for x in jugement['choices'])
+                         or len({x.strip().lower() for x in jugement['choices']}) != len(jugement['choices'])):
+            refuser('invalid_judgment')
         if v['kind'] == 'faithful_translation' and (
                 v.get('derivedFrom') != source['key']
                 or v['language'].split('-')[0] == source['language'].split('-')[0]

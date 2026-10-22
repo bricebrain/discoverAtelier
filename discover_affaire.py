@@ -191,8 +191,34 @@ def _find_case_law(url):
             'text': '\n\n'.join(t for t in textes if t), 'licence': LICENCE_FCL}
 
 
+def normaliser_url_affaire(url):
+    """Contrôle local identique à celui du Worker, sans accès réseau."""
+    try:
+        parsed = urlsplit(url)
+        valide = (isinstance(url, str) and len(url) <= 500 and parsed.scheme == 'https'
+                  and not parsed.username and not parsed.password and parsed.port in (None, 443)
+                  and not parsed.query and not parsed.fragment)
+    except (TypeError, ValueError):
+        valide = False
+    if valide:
+        from discover_affaire_sources import source_verifiee
+        if source_verifiee(url):
+            return url
+        chemin = re.sub(r'/data\.xml$', '', parsed.path.rstrip('/'))
+        if parsed.hostname in ('courtlistener.com', 'www.courtlistener.com') and re.fullmatch(r'/opinion/[0-9]+(?:/[a-zA-Z0-9_-]+)?', chemin):
+            return 'https://www.courtlistener.com' + chemin + '/'
+        if parsed.hostname == 'caselaw.nationalarchives.gov.uk' and re.fullmatch(r'/(?:[a-z]+/(?:[a-z]+/)?[0-9]{4}/[0-9]+|d-[0-9a-f-]{36})', chemin):
+            return FCL + chemin
+    raise SourceRefusee('Fournir le lien HTTPS d’une décision CourtListener, Find Case Law ou du catalogue de sources vérifiées.')
+
+
 def recuperer_affaire(url, config=None):
     """Charge une seule URL explicite ; config facultative, lue sur disque pour CourtListener."""
+    url = normaliser_url_affaire(url)
+    from discover_affaire_sources import source_verifiee, recuperer
+    selection = source_verifiee(url)
+    if selection:
+        return recuperer(selection, _lire, _html)
     try:
         parsed = urlsplit(url)
         valide = (parsed.scheme == 'https' and not parsed.username and not parsed.password

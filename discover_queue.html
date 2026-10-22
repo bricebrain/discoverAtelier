@@ -136,7 +136,7 @@
   </div>
   <div class="tabs" role="tablist">
     <button role="tab" id="tab-podcasts" aria-selected="true" aria-controls="panel-podcasts">Chaînes YouTube</button>
-    <button role="tab" id="tab-import" aria-selected="false" aria-controls="panel-import">Importer · YouTube & texte</button>
+    <button role="tab" id="tab-import" aria-selected="false" aria-controls="panel-import">Importer · YouTube, texte & affaire</button>
     <button role="tab" id="tab-queue" aria-selected="false" aria-controls="panel-queue">Préparations <span class="count" id="count-queue" hidden></span></button>
     <button role="tab" id="tab-checks" aria-selected="false" aria-controls="panel-checks">Contrôles <span class="count" id="count-checks" hidden></span></button>
   </div>
@@ -192,6 +192,13 @@
         <div id="yt-options"></div>
         <p class="note">L’Atelier télécharge l’audio, utilise les sous-titres de la vidéo (manuels, sinon automatiques) — MacWhisper seulement s’il n’y en a aucun —, puis prépare et publie la version choisie.</p>
         <div class="actions"><button class="primary" type="submit">Préparer cette vidéo</button></div>
+      </form>
+      <form class="card" id="form-affaire">
+        <h2>À vous de juger</h2>
+        <label class="champ">Lien CourtListener, Find Case Law ou source du catalogue vérifié<input type="url" id="affaire-url" required></label>
+        <label class="champ">Niveau d’anglais<select id="affaire-level"><option>A2</option><option selected>B1</option><option>B2</option><option>C1</option></select></label>
+        <p class="note">Catalogue historique : Donoghue (Scottish Law Reports), Carlill (LawCare Nigeria), Liebeck (American Museum of Tort Law). Une décision à la demande : histoire anglaise, voix Kokoro, guide et dictée. Le véritable verdict est révélé après ta réponse.</p>
+        <div class="actions"><button class="primary" type="submit">Préparer cette affaire</button></div>
       </form>
       <form class="card" id="form-text">
         <h2>¶ Texte</h2>

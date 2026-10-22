@@ -17,13 +17,13 @@ NIVEAUX = {
 }
 VOIX = {'Narrator': 'af_bella', 'Guest': 'bm_george'}
 SCHEMA = objet({
-    'title': TEXT,
+    'title': {**TEXT, 'maxLength': 200},
     'story_paragraphs': {'type': 'array', 'minItems': 1, 'items': objet({
         'speaker': {'type': 'string', 'enum': list(VOIX)}, 'text': TEXT})},
-    'question': TEXT,
-    'choices': {'type': 'array', 'minItems': 2, 'maxItems': 4, 'items': TEXT},
+    'question': {**TEXT, 'maxLength': 500},
+    'choices': {'type': 'array', 'minItems': 2, 'maxItems': 4, 'items': {**TEXT, 'maxLength': 300}},
     'verdict': {'type': 'integer', 'minimum': 0, 'maximum': 3},
-    'verdict_explanation_fr': TEXT,
+    'verdict_explanation_fr': {**TEXT, 'maxLength': 2000},
     'facts_check': {'type': 'array', 'minItems': 1,
                     'items': objet({'fact': TEXT, 'source_sentence': TEXT})},
 })
