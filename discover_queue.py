@@ -240,10 +240,17 @@ class FileDiscover:
                                 {'leaseToken': self.item['leaseToken'], 'error': str(erreur), 'retryable': False})
                     self.message = str(erreur)
                 except BailPerdu:
-                    self.message = 'Préparation interrompue. Le Worker attribuera un nouveau bail.'
-                    if self.stop.is_set() and not self.perdu.is_set():
-                        self._appel('/' + self.item['id'] + '/release', {'leaseToken': self.item['leaseToken']})
-                    break
+                    if self.stop.is_set():
+                        if not self.perdu.is_set():
+                            self._appel('/' + self.item['id'] + '/release', {'leaseToken': self.item['leaseToken']})
+                        break
+                    self.message = 'Préparation interrompue. Reprise avec un nouveau bail dans 30 secondes.'
+                    self.item = None
+                    self._sauver()
+                    self.perdu.clear()
+                    if self.stop.wait(30):
+                        break
+                    continue
                 except Exception as erreur:
                     # Aucune URL signée, contenu ni sortie de commande dans les erreurs distantes.
                     self._appel('/' + self.item['id'] + '/fail',
