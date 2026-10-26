@@ -1,4 +1,4 @@
-"""Original guidé : traductions par phrase, passage de travail, expressions, points d'écoute et quiz.
+"""Original guidé : aides sur toute la transcription et exercices sur un extrait.
 
 Le texte anglais n'est jamais réécrit : source anglaise telle quelle, ou traduction anglaise naturelle d'une
 source française lue en entier. Le niveau CECRL ne règle que les explications du guide.
@@ -6,6 +6,7 @@ source française lue en entier. Le niveau CECRL ne règle que les explications 
 import copy
 import re
 
+import discover_annotations
 import discover_quiz
 from adaptation import blocs, donnees
 from discover_adaptation_schema import TEXT, liste, objet
@@ -122,49 +123,13 @@ def choisir_passage(client, segments, niveau):
         return {'fromSegment': depart, 'toSegment': arrivee, 'reason': 'Passage choisi automatiquement (environ 4 minutes).'}
 
 
-def _normaliser(texte):
-    return re.sub(r'\s+', ' ', texte.replace('’', "'").replace('‘', "'").replace('“', '"').replace('”', '"')).strip().lower()
-
-
-def valider_notes(notes, segments, champ_sens):
-    par_id = {s['id']: _normaliser(s['text']) for s in segments}
-    for n in notes:
-        if n['segmentId'] not in par_id:
-            raise ValueError(f'segmentId inconnu : {n["segmentId"]}')
-        if _normaliser(n['text']) not in par_id[n['segmentId']]:
-            raise ValueError(f'« {n["text"]} » doit être cité exactement depuis le segment {n["segmentId"]}.')
-        if champ_sens and not n.get('meaning', '').strip():
-            raise ValueError('Chaque expression a un sens en français.')
-
-
 def generer_guide(client, segments, passage, niveau, voix, config):
-    """Expressions, points d'écoute (voix humaine seulement) et quiz, sur le passage uniquement."""
+    """Aides sur toute la transcription ; quiz et dictée restent des exercices sur un extrait."""
     debut, fin = valider_passage(segments, passage['fromSegment'], passage['toSegment'])
-    extrait = segments[debut:fin + 1]
-    note = {'segmentId': TEXT, 'text': TEXT, 'note': TEXT}
-    schema = objet({'expressions': {'type': 'array', 'minItems': 3, 'maxItems': 6, 'items': objet({**note, 'meaning': TEXT})},
-                    'listening': {'type': 'array', 'maxItems': 4, 'items': objet(note)}})
-    ecoute = ('listening: 2 to 4 points to LISTEN FOR in this human recording, limited to what is predictable from the text: '
-              'weak forms (to, of, and, can, have), contractions, numbers and dates, words that usually run together. '
-              'You cannot hear the audio: phrase each note as something to listen for, never as a claim about how it was said.'
-              if voix == 'original' else 'listening: return an empty array (synthetic voice, nothing to say about real pronunciation).')
-    consigne = ('Prepare a listening guide for this passage. expressions: 3 to 6 useful multi-word expressions or structures '
-                'a learner should understand by ear (not single easy words), each with its French meaning and a short French note '
-                'on use. ' + ecoute + ' ' + EXPLICATIONS[niveau] + ' ' + REGLES
-                + donnees({'segments': [{'id': s['id'], 'text': s['text']} for s in extrait]}))
-
-    def valider(o):
-        valider_notes(o['expressions'], extrait, True)
-        valider_notes(o['listening'], extrait, False)
-        if voix != 'original' and o['listening']:
-            raise ValueError('Aucun point d’écoute pour une voix de synthèse.')
-    obj = client.demander('guide-notes', consigne, schema, valider)
     guide = {'level': niveau, 'voice': voix,
              'passage': {k: v for k, v in passage.items() if v},
-             'expressions': [{k: n[k].strip()[:lim] for k, lim in (('segmentId', 64), ('text', 200), ('meaning', 300), ('note', 600))}
-                             for n in obj['expressions']],
-             'listening': [{k: n[k].strip()[:lim] for k, lim in (('segmentId', 64), ('text', 200), ('note', 600))}
-                           for n in obj['listening']]}
-    quiz = discover_quiz.generer(client, {'segments': extrait}, niveau, config)
+             'expressions': [], 'listening': [],
+             'annotations': discover_annotations.generer_annotations(client, segments, niveau)}
+    quiz = discover_quiz.generer(client, {'segments': segments[debut:fin + 1]}, niveau, config)
     # Le quiz renvoie à la position dans le document complet, pas dans le passage.
     return guide, [{**q, 'segmentIndex': q['segmentIndex'] + debut} for q in quiz]

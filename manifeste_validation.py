@@ -182,6 +182,12 @@ def valider_segments(doc, variant, source_ids=None):
             refuser('invalid_guide')
         if guide['voice'] == 'synthetic' and guide['listening']:
             refuser('invalid_guide')
+        if 'annotations' in guide:
+            from discover_annotations import valider_annotations
+            try:
+                valider_annotations(guide['annotations'], segments)
+            except ValueError:
+                refuser('invalid_guide')
         valider_dictee(guide.get('dictation') or [], segments, debut, fin)
     return doc
 

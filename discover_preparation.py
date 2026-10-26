@@ -29,7 +29,7 @@ def source_minutes(sources):
 
 
 def preparer_guide(item, source, root, folder, etape, verifier, config, client):
-    """Original guidé, plus un guide sur un passage. Trois cas, sans jamais réécrire l'anglais :
+    """Original guidé, annoté en entier avec des exercices sur un extrait. Trois cas, sans jamais réécrire l'anglais :
     vidéo anglaise (l'original tel quel), texte anglais (lu tel quel par une voix), source française
     (traduite en anglais naturel et lue en entier)."""
     doc = json.loads(Path(source['segmentsFile']).read_text())
@@ -40,8 +40,8 @@ def preparer_guide(item, source, root, folder, etape, verifier, config, client):
     horodatee = bool(source.get('audioFile')) and all(s.get('startMs') is not None for s in sources)
     words = sum(len(s['text'].split()) for s in sources)
     if isinstance(getattr(client, 'max_calls', None), int):
-        client.max_calls = max(client.max_calls, words // 300 + 10)
-        client.max_tokens = max(client.max_tokens, words * 20)
+        client.max_calls = max(client.max_calls, words // 150 + 15)
+        client.max_tokens = max(client.max_tokens, words * 30)
     francais, anglais, audio_anglais = None, None, None
     if langue == 'en' and horodatee:
         francais = discover_guide.traduire_vers_francais(client, sources, etape)

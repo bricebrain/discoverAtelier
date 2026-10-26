@@ -16,7 +16,7 @@ const STEPS = [
   ['publish', 'Publication', ['publish']],
 ];
 const STAGE_TEXT = {
-  guide: 'Guide d’écoute (passage, expressions, quiz)', download: 'Téléchargement de l’audio', normalize: 'Préparation de l’audio', transcribe: 'Transcription (sous-titres de la vidéo, sinon MacWhisper)',
+  guide: 'Aides sur toute la transcription et exercices', download: 'Téléchargement de l’audio', normalize: 'Préparation de l’audio', transcribe: 'Transcription (sous-titres de la vidéo, sinon MacWhisper)',
   source_ready: 'Source prête', plan: 'Plan de l’épisode (Gemini)', extract: 'Extraction des faits et arguments (Gemini)',
   adapt: 'Écriture de la version anglaise (Gemini)', translate: 'Traduction fidèle (Gemini)', evaluate: 'Contrôle de fidélité',
   review: 'En attente de relecture (mode manuel)', tts: 'Création de l’audio anglais (Kokoro ou Deepgram)', publish: 'Publication dans Discover',
@@ -122,7 +122,7 @@ function renderEngine(state) {
 /** Éditeur couverture / niveau / durée / fidèle ; `value()` rend les options à envoyer. */
 function optionsEditor({ faithfulAllowed = false } = {}) {
   // Original guidé par défaut : l'anglais n'est pas réécrit, le niveau règle seulement les explications du guide.
-  const opts = { coverage: 'guided', level: 'B1', targetMinutes: null, faithful: false };
+  const opts = { coverage: 'guided', level: 'A2', targetMinutes: null, faithful: false };
   const box = el('div');
   box.style.display = 'grid';
   box.style.gap = '10px';
@@ -139,7 +139,7 @@ function optionsEditor({ faithfulAllowed = false } = {}) {
       b.onclick = () => {
         opts[key] = v;
         if (key === 'coverage') opts.targetMinutes = v === 'condensed' ? 12 : v === 'essentials' ? 4 : null;
-        if (key === 'coverage' && v === 'guided' && opts.level === 'original') opts.level = 'B1';
+        if (key === 'coverage' && v === 'guided' && opts.level === 'original') opts.level = 'A2';
         render();
       };
       group.append(b);

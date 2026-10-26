@@ -46,10 +46,11 @@ def traductions(prompt, texte=lambda i: 'Traduction ' + i, promotion=lambda i: F
     return {'translations': [{'sourceId': s['id'], 'text': texte(s['id']), 'promotion': promotion(s['id'])} for s in ids]}
 
 
-NOTES = {'expressions': [{'segmentId': 's0004', 'text': 'is expected to', 'meaning': 'devrait', 'note': 'Très fréquent.'},
-                         {'segmentId': 's0004', 'text': 'hold interest rates steady', 'meaning': 'maintenir les taux', 'note': 'Bloc à retenir.'},
-                         {'segmentId': 's0005', 'text': 'Bank of England', 'meaning': 'Banque d’Angleterre', 'note': 'Nom propre.'}],
-         'listening': [{'segmentId': 's0004', 'text': 'expected to', 'note': 'À écouter : « to » souvent réduit.'}]}
+def notes_sur_tout_le_texte(prompt):
+    segments = json.loads(prompt.split('<source_data>')[1].split('</source_data>')[0])['segments']
+    return {'segments': [{'segmentId': s['id'], 'annotations': [
+        {'text': 'is expected to', 'occurrence': 0, 'meaning': 'devrait',
+         'note': 'On annonce ce qui est probable, pas une certitude.'}]} for s in segments]}
 
 
 class TraductionsTests(unittest.TestCase):
@@ -104,21 +105,23 @@ class GuideTests(unittest.TestCase):
         self.segments = video(12)
         self.passage = {'fromSegment': 's0004', 'toSegment': 's0007'}
 
-    def test_guide_cite_exactement_le_passage_et_quiz_dans_le_document_complet(self):
-        client = FauxClient({'guide-notes': NOTES, 'quiz': {'questions': QUESTIONS}})
-        resultat, quiz = guide.generer_guide(client, self.segments, self.passage, 'B1', 'original', {})
-        self.assertEqual([n['text'] for n in resultat['expressions']], ['is expected to', 'hold interest rates steady', 'Bank of England'])
+    def test_aides_sur_tout_le_texte_et_quiz_sur_l_extrait(self):
+        client = FauxClient({'guide-annotations': notes_sur_tout_le_texte, 'quiz': {'questions': QUESTIONS}})
+        resultat, quiz = guide.generer_guide(client, self.segments, self.passage, 'A2', 'original', {})
+        self.assertEqual({n['segmentId'] for n in resultat['annotations']}, {s['id'] for s in self.segments})
+        self.assertEqual(resultat['expressions'], [])
+        self.assertEqual(resultat['listening'], [])
         self.assertEqual(resultat['voice'], 'original')
-        self.assertEqual({q['segmentIndex'] for q in quiz}, {4})  # position 0 du passage = segment 4 du document
+        self.assertEqual({q['segmentIndex'] for q in quiz}, {4})
+        for n in resultat['annotations']:
+            texte = next(s['text'] for s in self.segments if s['id'] == n['segmentId'])
+            self.assertEqual(texte[n['startChar']:n['endChar']], n['text'])
 
-    def test_expression_inventee_refusee(self):
-        notes = {**NOTES, 'expressions': [{'segmentId': 's0004', 'text': 'cut rates sharply', 'meaning': 'baisser', 'note': 'x'}]}
-        with self.assertRaises(ValueError):
-            guide.generer_guide(FauxClient({'guide-notes': notes}), self.segments, self.passage, 'B1', 'original', {})
-
-    def test_aucun_point_d_ecoute_sur_une_voix_de_synthese(self):
-        with self.assertRaises(ValueError):
-            guide.generer_guide(FauxClient({'guide-notes': NOTES}), self.segments, self.passage, 'B1', 'synthetic', {})
+    def test_pas_d_affirmation_sur_la_prononciation_meme_pour_la_voix_originale(self):
+        client = FauxClient({'guide-annotations': notes_sur_tout_le_texte, 'quiz': {'questions': QUESTIONS}})
+        for voix in ('original', 'synthetic'):
+            resultat, _ = guide.generer_guide(client, self.segments, self.passage, 'A2', voix, {})
+            self.assertEqual(resultat['listening'], [])
 
 
 def voix(segments, folder, name, verifier, speeds=None):
@@ -163,7 +166,7 @@ class PublicationTests(unittest.TestCase):
         return publies[0]
 
     def test_video_anglaise_publie_l_original_avec_francais_guide_et_quiz(self):
-        client = FauxClient({'guide-fr': traductions, 'guide-notes': NOTES, 'quiz': {'questions': QUESTIONS}})
+        client = FauxClient({'guide-fr': traductions, 'guide-annotations': notes_sur_tout_le_texte, 'quiz': {'questions': QUESTIONS}})
         manifest, paths = self.publier(video(9), client)
         valider_manifeste(manifest)
         self.assertEqual([v['kind'] for v in manifest['variants']], ['source'])
@@ -174,6 +177,8 @@ class PublicationTests(unittest.TestCase):
         self.assertEqual(doc['segments'][4]['fr'], 'Traduction s0004')
         self.assertEqual(doc['guide']['passage']['fromSegment'], 's0000')  # 4 min 30 : travaillée en entier
         self.assertNotIn('guide-passage', client.etapes)
+        self.assertEqual(len(doc['guide']['annotations']), 9)
+        self.assertEqual(Path(paths[source['audio']['file']]).read_bytes(), b'ID3-source')
         self.assertTrue(doc['guide']['dictation'])
         self.assertEqual(doc['guide']['dictation'][0]['segmentId'], 's0000')
 
@@ -181,9 +186,8 @@ class PublicationTests(unittest.TestCase):
         francais = [{**s, 'text': f'La Banque d’Angleterre devrait maintenir ses taux, partie {i}.'} for i, s in enumerate(video(12))]
         speech = mock.Mock(provider='deepgram')
         speech.generate.side_effect = voix
-        notes = {'expressions': NOTES['expressions'], 'listening': []}
         client = FauxClient({'guide-en': lambda p: traductions(p, lambda i: f'The Bank of England is expected to hold interest rates steady, part {int(i[1:])}.'),
-                             'guide-notes': notes, 'quiz': {'questions': QUESTIONS}})
+                             'guide-annotations': notes_sur_tout_le_texte, 'quiz': {'questions': QUESTIONS}})
         manifest, paths = self.publier(francais, client, 'fr', **{'discover_speech.Session': mock.Mock(return_value=speech)})
         valider_manifeste(manifest)
         self.assertEqual([(v['key'], v['kind']) for v in manifest['variants']], [('fr-source', 'source'), ('en-faithful', 'faithful_translation')])
@@ -202,7 +206,7 @@ class PublicationTests(unittest.TestCase):
         speech.generate.side_effect = generer
         speech.kokoro_speeds.return_value = {'af_bella': 1.0, 'bm_george': 1.0}
         client = FauxClient({'guide-en': lambda p: traductions(p, lambda i: f'The Bank of England is expected to hold interest rates steady, part {int(i[1:])}.'),
-                             'guide-notes': {'expressions': NOTES['expressions'], 'listening': []},
+                             'guide-annotations': notes_sur_tout_le_texte,
                              'quiz': {'questions': QUESTIONS}})
         manifest, paths = self.publier(video(12), client, 'fr', **{'discover_speech.Session': mock.Mock(return_value=speech)})
         anglais = manifest['variants'][1]
@@ -231,7 +235,7 @@ class PublicationTests(unittest.TestCase):
         self.segments.write_text(json.dumps({'language': 'en', 'timingSource': 'none', 'segments': texte}))
         speech = mock.Mock(provider='deepgram')
         speech.generate.side_effect = voix
-        client = FauxClient({'guide-fr': traductions, 'guide-notes': {'expressions': NOTES['expressions'], 'listening': []},
+        client = FauxClient({'guide-fr': traductions, 'guide-annotations': notes_sur_tout_le_texte,
                              'quiz': {'questions': QUESTIONS}})
         publies = []
         with mock.patch('discover_cible.requete', side_effect=workflow.discover_cible.ErreurDiscover(404, 'not_found')), \
