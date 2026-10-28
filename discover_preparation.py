@@ -102,6 +102,9 @@ def preparer_guide(item, source, root, folder, etape, verifier, config, client):
 
 
 def preparer(item, source, root, etape, verifier, config, client=None):
+    # Le choix reçu du Worker s'applique à cet article, sans modifier les réglages des autres sources.
+    if item.get('source', {}).get('ttsProvider') == 'kokoro':
+        config = {**config, 'tts': {**(config.get('tts') or {}), 'provider': 'kokoro'}}
     root = Path(root)
     folder = root / ('prepared-' + empreinte(item['options'])[:16])
     folder.mkdir(parents=True, exist_ok=True)

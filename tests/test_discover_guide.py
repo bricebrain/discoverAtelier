@@ -213,6 +213,26 @@ class PublicationTests(unittest.TestCase):
         doc = json.loads(Path(paths[anglais['segmentsFile']]).read_text())
         self.assertEqual(anglais['audio']['origin'], 'kokoro')
         self.assertTrue(doc['guide']['dictation'])
+    def test_article_gemini_est_traduit_et_lu_en_anglais_par_kokoro(self):
+        note = '3f1d9c6e-8b2a-4c7d-9e10-2a3b4c5d6e7f'
+        self.item.update(kind='reflection', ref=note, source={'kind': 'reflection', 'title': 'Recherche',
+                         'origin': 'article', 'language': 'fr', 'ttsProvider': 'kokoro'})
+        speech = mock.Mock(provider='kokoro')
+        speech.generate.side_effect = lambda *a, **kw: {**voix(*a, **kw), 'origin': 'kokoro', 'timingSource': 'kokoro'}
+        speech.kokoro_speeds.return_value = {'af_bella': 1.0}
+        factory = mock.Mock(return_value=speech)
+        client = FauxClient({'guide-en': lambda p: traductions(p, lambda i: f'The Bank of England is expected to hold interest rates steady, part {int(i[1:])}.'),
+                             'guide-annotations': notes_sur_tout_le_texte, 'quiz': {'questions': QUESTIONS}})
+        manifest, paths = self.publier(video(12), client, 'fr', **{'discover_speech.Session': factory})
+        valider_manifeste(manifest)
+        self.assertEqual(factory.call_args.args[2]['tts']['provider'], 'kokoro')
+        anglais = next(v for v in manifest['variants'] if v['key'] == 'en-faithful')
+        self.assertEqual((anglais['language'], anglais['audio']['origin']), ('en', 'kokoro'))
+        self.assertEqual(len(anglais['quiz']), 3)
+        doc = json.loads(Path(paths[anglais['segmentsFile']]).read_text())
+        self.assertTrue(doc['segments'][0]['text'].startswith('The Bank'))
+        self.assertTrue(doc['guide']['dictation'])
+
     def test_dictee_bornee_a_la_fin_reelle_de_l_audio(self):
         from discover_podcast_bundle import construire
         segments = video(2)
